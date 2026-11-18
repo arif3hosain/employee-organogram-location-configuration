@@ -1,0 +1,14 @@
+# Tests run against in-memory H2 in PostgreSQL mode, with the same Flyway migrations.
+spring:
+  datasource:
+    # fresh database per Spring context (integration tests dirty the context after each test)
+    url: jdbc:h2:mem:pmspoc-${random.uuid};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none   # Hibernate's H2 dialect expects native ENUM columns; Postgres runs use "validate"
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
