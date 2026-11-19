@@ -1,4 +1,4 @@
-# Dynamic Configuration of Organogram and Location Hierarchy
+## Dynamic Configuration of Organogram and Location Hierarchy
 
 A proof of concept for the new **PMS (Performance Management System)** backend and UI. It shows how the core HR master data that PMS depends on (locations, the organogram, grades, designations, sanctioned posts and employees) can be modelled, validated and managed in the new stack. It also demonstrates the request flow from the PMS Technical Migration Guide §3.4:
 
