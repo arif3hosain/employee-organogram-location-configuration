@@ -7,6 +7,7 @@ import com.bracits.pms.corehr.organogram.domain.OrgUnit;
 import com.bracits.pms.corehr.organogram.domain.OrgUnitPost;
 import com.bracits.pms.corehr.organogram.infrastructure.OrgUnitPostRepository;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,18 +16,12 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class OrgUnitPostService {
 
     private final OrgUnitPostRepository repo;
     private final OrgUnitService orgUnitService;
     private final DesignationService designationService;
-
-    public OrgUnitPostService(OrgUnitPostRepository repo, OrgUnitService orgUnitService,
-                              DesignationService designationService) {
-        this.repo = repo;
-        this.orgUnitService = orgUnitService;
-        this.designationService = designationService;
-    }
 
     /** Sanctioned posts of one unit with filled and vacant counts. */
     @Transactional(readOnly = true)

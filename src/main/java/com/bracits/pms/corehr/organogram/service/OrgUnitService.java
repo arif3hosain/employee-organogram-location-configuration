@@ -13,6 +13,7 @@ import com.bracits.pms.shared.domain.HierarchyPath;
 import com.bracits.pms.shared.domain.RecordStatus;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,17 +24,12 @@ import java.util.Map;
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 public class OrgUnitService {
 
     private final OrgUnitRepository repo;
     private final OrgUnitTypeService typeService;
     private final LocationService locationService;      // other sub-module: called through its service only
-
-    public OrgUnitService(OrgUnitRepository repo, OrgUnitTypeService typeService, LocationService locationService) {
-        this.repo = repo;
-        this.typeService = typeService;
-        this.locationService = locationService;
-    }
 
     /* ------------------------------ queries ------------------------------ */
 

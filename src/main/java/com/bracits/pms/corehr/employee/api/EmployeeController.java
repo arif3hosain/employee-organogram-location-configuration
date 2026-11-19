@@ -11,6 +11,7 @@ import com.bracits.pms.shared.api.ApiResponses;
 import com.bracits.pms.shared.api.PageView;
 import com.bracits.pms.shared.domain.RecordStatus;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Employees")
 @RestController
 @RequestMapping("/api/employees")
+@RequiredArgsConstructor
 public class EmployeeController {
 
     private final SearchEmployeesAction searchAction;
@@ -36,16 +38,6 @@ public class EmployeeController {
     private final CreateEmployeeAction createAction;
     private final UpdateEmployeeAction updateAction;
     private final DeleteEmployeeAction deleteAction;
-
-    public EmployeeController(SearchEmployeesAction searchAction, GetEmployeeAction getAction,
-                              CreateEmployeeAction createAction, UpdateEmployeeAction updateAction,
-                              DeleteEmployeeAction deleteAction) {
-        this.searchAction = searchAction;
-        this.getAction = getAction;
-        this.createAction = createAction;
-        this.updateAction = updateAction;
-        this.deleteAction = deleteAction;
-    }
 
     /** e.g. /api/employees?orgUnitId=2 (everyone under the Technology function) or ?locationId=2&status=ACTIVE */
     @GetMapping

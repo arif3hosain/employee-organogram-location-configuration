@@ -4,16 +4,14 @@ import com.bracits.pms.corehr.organogram.api.OrgUnitTypeForm;
 import com.bracits.pms.corehr.organogram.api.OrgUnitTypeView;
 import com.bracits.pms.corehr.organogram.service.OrgUnitTypeService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class SaveOrgUnitTypeAction extends BaseAction<OrgUnitTypeForm, OrgUnitTypeView> {
 
     private final OrgUnitTypeService service;
-
-    public SaveOrgUnitTypeAction(OrgUnitTypeService service) {
-        this.service = service;
-    }
 
     @Override
     protected String preCondition(OrgUnitTypeForm f) {

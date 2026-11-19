@@ -6,21 +6,16 @@ import com.bracits.pms.corehr.organogram.service.DesignationService;
 import com.bracits.pms.corehr.organogram.service.OrgUnitPostService;
 import com.bracits.pms.corehr.organogram.service.OrgUnitService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class SaveOrgUnitPostAction extends BaseAction<OrgUnitPostForm, OrgUnitPostView> {
 
     private final OrgUnitPostService service;
     private final OrgUnitService orgUnitService;
     private final DesignationService designationService;
-
-    public SaveOrgUnitPostAction(OrgUnitPostService service, OrgUnitService orgUnitService,
-                                 DesignationService designationService) {
-        this.service = service;
-        this.orgUnitService = orgUnitService;
-        this.designationService = designationService;
-    }
 
     @Override
     protected String preCondition(OrgUnitPostForm f) {

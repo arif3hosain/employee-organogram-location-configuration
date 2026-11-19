@@ -4,16 +4,14 @@ import com.bracits.pms.corehr.organogram.api.GradeForm;
 import com.bracits.pms.corehr.organogram.api.GradeView;
 import com.bracits.pms.corehr.organogram.service.GradeService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class SaveGradeAction extends BaseAction<GradeForm, GradeView> {
 
     private final GradeService service;
-
-    public SaveGradeAction(GradeService service) {
-        this.service = service;
-    }
 
     @Override
     protected String preCondition(GradeForm f) {

@@ -7,6 +7,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * A configurable kind of location. Seeded for Bangladesh as
@@ -17,6 +20,8 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "location_type")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LocationType extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 30)
@@ -32,9 +37,6 @@ public class LocationType extends BaseEntity {
     @Column(nullable = false, length = 20)
     private RecordStatus status = RecordStatus.ACTIVE;
 
-    protected LocationType() {
-    }
-
     public LocationType(String code, String name, Integer levelNo) {
         change(code, name, levelNo, RecordStatus.ACTIVE);
     }
@@ -44,21 +46,5 @@ public class LocationType extends BaseEntity {
         this.name = name.trim();
         this.levelNo = levelNo;
         this.status = status == null ? RecordStatus.ACTIVE : status;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public Integer getLevelNo() {
-        return levelNo;
-    }
-
-    public RecordStatus getStatus() {
-        return status;
     }
 }

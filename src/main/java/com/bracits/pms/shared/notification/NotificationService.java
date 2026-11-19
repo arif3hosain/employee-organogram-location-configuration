@@ -1,7 +1,6 @@
 package com.bracits.pms.shared.notification;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -10,9 +9,8 @@ import org.springframework.stereotype.Service;
  * Deliberately NOT @Transactional.
  */
 @Service
+@Slf4j
 public class NotificationService {
-
-    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     public void send(String to, String subject, String body) {
         log.info("[MAIL] to={} subject='{}' body='{}'", to, subject, body);

@@ -10,6 +10,7 @@ import com.bracits.pms.shared.action.Result;
 import com.bracits.pms.shared.action.UpdateCommand;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +27,7 @@ import java.util.List;
 @Tag(name = "Locations")
 @RestController
 @RequestMapping("/api/locations")
+@RequiredArgsConstructor
 public class LocationController {
 
     private final SearchLocationsAction searchAction;
@@ -34,17 +36,6 @@ public class LocationController {
     private final CreateLocationAction createAction;
     private final UpdateLocationAction updateAction;
     private final DeleteLocationAction deleteAction;
-
-    public LocationController(SearchLocationsAction searchAction, GetLocationTreeAction treeAction,
-                              GetLocationAction getAction, CreateLocationAction createAction,
-                              UpdateLocationAction updateAction, DeleteLocationAction deleteAction) {
-        this.searchAction = searchAction;
-        this.treeAction = treeAction;
-        this.getAction = getAction;
-        this.createAction = createAction;
-        this.updateAction = updateAction;
-        this.deleteAction = deleteAction;
-    }
 
     /** e.g. /api/locations?typeId=6 (all districts) or ?parentId=12 (the districts of Dhaka division). */
     @GetMapping

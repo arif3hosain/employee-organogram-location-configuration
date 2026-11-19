@@ -8,6 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * Sanctioned (approved) posts: how many people of a designation an org unit may have.
@@ -16,6 +19,8 @@ import jakarta.persistence.UniqueConstraint;
 @Entity
 @Table(name = "org_unit_post",
         uniqueConstraints = @UniqueConstraint(columnNames = {"org_unit_id", "designation_id"}))
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrgUnitPost extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -29,9 +34,6 @@ public class OrgUnitPost extends BaseEntity {
     @Column(name = "sanctioned_count", nullable = false)
     private Integer sanctionedCount;
 
-    protected OrgUnitPost() {
-    }
-
     public OrgUnitPost(OrgUnit orgUnit, Designation designation, Integer sanctionedCount) {
         this.orgUnit = orgUnit;
         this.designation = designation;
@@ -40,17 +42,5 @@ public class OrgUnitPost extends BaseEntity {
 
     public void changeSanctionedCount(Integer sanctionedCount) {
         this.sanctionedCount = sanctionedCount;
-    }
-
-    public OrgUnit getOrgUnit() {
-        return orgUnit;
-    }
-
-    public Designation getDesignation() {
-        return designation;
-    }
-
-    public Integer getSanctionedCount() {
-        return sanctionedCount;
     }
 }

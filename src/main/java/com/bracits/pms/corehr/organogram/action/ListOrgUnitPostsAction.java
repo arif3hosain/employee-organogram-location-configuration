@@ -4,21 +4,18 @@ import com.bracits.pms.corehr.organogram.api.OrgUnitPostView;
 import com.bracits.pms.corehr.organogram.service.OrgUnitPostService;
 import com.bracits.pms.corehr.organogram.service.OrgUnitService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 /** Input: org unit id. */
 @Component
+@RequiredArgsConstructor
 public class ListOrgUnitPostsAction extends BaseAction<Long, List<OrgUnitPostView>> {
 
     private final OrgUnitPostService service;
     private final OrgUnitService orgUnitService;
-
-    public ListOrgUnitPostsAction(OrgUnitPostService service, OrgUnitService orgUnitService) {
-        this.service = service;
-        this.orgUnitService = orgUnitService;
-    }
 
     @Override
     protected String preCondition(Long orgUnitId) {

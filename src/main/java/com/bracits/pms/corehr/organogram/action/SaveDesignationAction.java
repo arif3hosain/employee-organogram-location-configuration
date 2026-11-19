@@ -5,18 +5,15 @@ import com.bracits.pms.corehr.organogram.api.DesignationView;
 import com.bracits.pms.corehr.organogram.service.DesignationService;
 import com.bracits.pms.corehr.organogram.service.GradeService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class SaveDesignationAction extends BaseAction<DesignationForm, DesignationView> {
 
     private final DesignationService service;
     private final GradeService gradeService;
-
-    public SaveDesignationAction(DesignationService service, GradeService gradeService) {
-        this.service = service;
-        this.gradeService = gradeService;
-    }
 
     @Override
     protected String preCondition(DesignationForm f) {

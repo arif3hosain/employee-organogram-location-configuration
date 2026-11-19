@@ -2,16 +2,14 @@ package com.bracits.pms.corehr.organogram.action;
 
 import com.bracits.pms.corehr.organogram.service.OrgUnitService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class DeleteOrgUnitAction extends BaseAction<Long, Long> {
 
     private final OrgUnitService service;
-
-    public DeleteOrgUnitAction(OrgUnitService service) {
-        this.service = service;
-    }
 
     @Override
     protected String preCondition(Long id) {

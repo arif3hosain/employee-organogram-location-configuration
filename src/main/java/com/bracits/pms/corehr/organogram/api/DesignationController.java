@@ -6,6 +6,7 @@ import com.bracits.pms.corehr.organogram.action.SaveDesignationAction;
 import com.bracits.pms.shared.action.Result;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,18 +22,12 @@ import java.util.List;
 @Tag(name = "Designations")
 @RestController
 @RequestMapping("/api/designations")
+@RequiredArgsConstructor
 public class DesignationController {
 
     private final ListDesignationsAction listAction;
     private final SaveDesignationAction saveAction;
     private final DeleteDesignationAction deleteAction;
-
-    public DesignationController(ListDesignationsAction listAction, SaveDesignationAction saveAction,
-                                 DeleteDesignationAction deleteAction) {
-        this.listAction = listAction;
-        this.saveAction = saveAction;
-        this.deleteAction = deleteAction;
-    }
 
     @GetMapping
     public ResponseEntity<Result<List<DesignationView>>> list() {

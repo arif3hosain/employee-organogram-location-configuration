@@ -8,11 +8,13 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
 /** Common id, optimistic-lock version and audit timestamps for every table. */
 @MappedSuperclass
+@Getter
 public abstract class BaseEntity {
 
     @Id
@@ -49,21 +51,5 @@ public abstract class BaseEntity {
             throw new com.bracits.pms.shared.error.BusinessException(
                     "The record was changed by someone else (version " + version + ", you sent " + expected + "). Reload and try again.");
         }
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
     }
 }

@@ -7,6 +7,7 @@ import com.bracits.pms.corehr.location.infrastructure.LocationRepository;
 import com.bracits.pms.corehr.location.infrastructure.LocationTypeRepository;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,15 +15,11 @@ import java.util.List;
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 public class LocationTypeService {
 
     private final LocationTypeRepository typeRepo;
     private final LocationRepository locationRepo;
-
-    public LocationTypeService(LocationTypeRepository typeRepo, LocationRepository locationRepo) {
-        this.typeRepo = typeRepo;
-        this.locationRepo = locationRepo;
-    }
 
     @Transactional(readOnly = true)
     public List<LocationTypeView> list() {

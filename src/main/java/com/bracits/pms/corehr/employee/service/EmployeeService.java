@@ -15,6 +15,7 @@ import com.bracits.pms.shared.api.PageView;
 import com.bracits.pms.shared.domain.RecordStatus;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * are reached through their services, never their repositories.
  */
 @Service
+@RequiredArgsConstructor
 public class EmployeeService {
 
     private static final int MAX_SUPERVISOR_DEPTH = 50;
@@ -33,14 +35,6 @@ public class EmployeeService {
     private final DesignationService designationService;
     private final OrgUnitService orgUnitService;
     private final LocationService locationService;
-
-    public EmployeeService(EmployeeRepository repo, DesignationService designationService,
-                           OrgUnitService orgUnitService, LocationService locationService) {
-        this.repo = repo;
-        this.designationService = designationService;
-        this.orgUnitService = orgUnitService;
-        this.locationService = locationService;
-    }
 
     /* ------------------------------ queries ------------------------------ */
 

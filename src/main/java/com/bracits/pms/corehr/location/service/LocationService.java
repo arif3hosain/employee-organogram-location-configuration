@@ -11,6 +11,7 @@ import com.bracits.pms.shared.domain.HierarchyPath;
 import com.bracits.pms.shared.domain.RecordStatus;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,15 +22,11 @@ import java.util.Map;
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 public class LocationService {
 
     private final LocationRepository repo;
     private final LocationTypeService typeService;
-
-    public LocationService(LocationRepository repo, LocationTypeService typeService) {
-        this.repo = repo;
-        this.typeService = typeService;
-    }
 
     /* ------------------------------ queries ------------------------------ */
 

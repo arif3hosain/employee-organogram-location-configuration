@@ -11,6 +11,9 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * One node of the location tree. Every node has a type; the tree is a single self-referencing
@@ -19,6 +22,8 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "location")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Location extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 30)
@@ -42,9 +47,6 @@ public class Location extends BaseEntity {
     @Column(nullable = false, length = 20)
     private RecordStatus status = RecordStatus.ACTIVE;
 
-    protected Location() {
-    }
-
     public Location(String code, String name, LocationType type, Location parent) {
         change(code, name, type, parent, RecordStatus.ACTIVE);
     }
@@ -64,29 +66,5 @@ public class Location extends BaseEntity {
 
     public void rebasePath(String oldPrefix, String newPrefix) {
         this.path = HierarchyPath.rebase(path, oldPrefix, newPrefix);
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public LocationType getType() {
-        return type;
-    }
-
-    public Location getParent() {
-        return parent;
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public RecordStatus getStatus() {
-        return status;
     }
 }

@@ -9,6 +9,7 @@ import com.bracits.pms.corehr.organogram.infrastructure.OrgUnitPostRepository;
 import com.bracits.pms.shared.domain.RecordStatus;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,17 +17,12 @@ import java.util.List;
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 public class DesignationService {
 
     private final DesignationRepository repo;
     private final OrgUnitPostRepository postRepo;
     private final GradeService gradeService;
-
-    public DesignationService(DesignationRepository repo, OrgUnitPostRepository postRepo, GradeService gradeService) {
-        this.repo = repo;
-        this.postRepo = postRepo;
-        this.gradeService = gradeService;
-    }
 
     /** Most senior first (by grade rank), then by name. */
     @Transactional(readOnly = true)

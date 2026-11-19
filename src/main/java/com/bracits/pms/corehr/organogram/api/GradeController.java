@@ -6,6 +6,7 @@ import com.bracits.pms.corehr.organogram.action.SaveGradeAction;
 import com.bracits.pms.shared.action.Result;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,17 +22,12 @@ import java.util.List;
 @Tag(name = "Grades")
 @RestController
 @RequestMapping("/api/grades")
+@RequiredArgsConstructor
 public class GradeController {
 
     private final ListGradesAction listAction;
     private final SaveGradeAction saveAction;
     private final DeleteGradeAction deleteAction;
-
-    public GradeController(ListGradesAction listAction, SaveGradeAction saveAction, DeleteGradeAction deleteAction) {
-        this.listAction = listAction;
-        this.saveAction = saveAction;
-        this.deleteAction = deleteAction;
-    }
 
     @GetMapping
     public ResponseEntity<Result<List<GradeView>>> list() {

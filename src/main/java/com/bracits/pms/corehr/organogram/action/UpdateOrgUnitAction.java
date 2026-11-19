@@ -7,20 +7,16 @@ import com.bracits.pms.corehr.organogram.service.OrgUnitService;
 import com.bracits.pms.corehr.organogram.service.OrgUnitTypeService;
 import com.bracits.pms.shared.action.BaseAction;
 import com.bracits.pms.shared.action.UpdateCommand;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class UpdateOrgUnitAction extends BaseAction<UpdateCommand<OrgUnitForm>, OrgUnitView> {
 
     private final OrgUnitService service;
     private final OrgUnitTypeService typeService;
     private final LocationService locationService;
-
-    public UpdateOrgUnitAction(OrgUnitService service, OrgUnitTypeService typeService, LocationService locationService) {
-        this.service = service;
-        this.typeService = typeService;
-        this.locationService = locationService;
-    }
 
     @Override
     protected String preCondition(UpdateCommand<OrgUnitForm> c) {

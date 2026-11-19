@@ -7,6 +7,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * Configurable organogram level, e.g. ORGANIZATION (1) > FUNCTION (2) > DEPARTMENT (3) > UNIT (4) > TEAM (5).
@@ -14,6 +17,8 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "org_unit_type")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrgUnitType extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 30)
@@ -29,9 +34,6 @@ public class OrgUnitType extends BaseEntity {
     @Column(nullable = false, length = 20)
     private RecordStatus status = RecordStatus.ACTIVE;
 
-    protected OrgUnitType() {
-    }
-
     public OrgUnitType(String code, String name, Integer levelNo) {
         change(code, name, levelNo, RecordStatus.ACTIVE);
     }
@@ -41,21 +43,5 @@ public class OrgUnitType extends BaseEntity {
         this.name = name.trim();
         this.levelNo = levelNo;
         this.status = status == null ? RecordStatus.ACTIVE : status;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public Integer getLevelNo() {
-        return levelNo;
-    }
-
-    public RecordStatus getStatus() {
-        return status;
     }
 }

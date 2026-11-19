@@ -4,18 +4,15 @@ import com.bracits.pms.corehr.employee.api.EmployeeView;
 import com.bracits.pms.corehr.employee.service.EmployeeService;
 import com.bracits.pms.shared.action.BaseAction;
 import com.bracits.pms.shared.notification.NotificationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class DeleteEmployeeAction extends BaseAction<Long, EmployeeView> {
 
     private final EmployeeService service;
     private final NotificationService notificationService;
-
-    public DeleteEmployeeAction(EmployeeService service, NotificationService notificationService) {
-        this.service = service;
-        this.notificationService = notificationService;
-    }
 
     @Override
     protected String preCondition(Long id) {

@@ -7,6 +7,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * Pay/seniority grade (G1, G2, ...). Designations belong to a grade.
@@ -14,6 +17,8 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "grade")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Grade extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 30)
@@ -29,9 +34,6 @@ public class Grade extends BaseEntity {
     @Column(nullable = false, length = 20)
     private RecordStatus status = RecordStatus.ACTIVE;
 
-    protected Grade() {
-    }
-
     public Grade(String code, String name, Integer rankNo) {
         change(code, name, rankNo, RecordStatus.ACTIVE);
     }
@@ -41,21 +43,5 @@ public class Grade extends BaseEntity {
         this.name = name.trim();
         this.rankNo = rankNo;
         this.status = status == null ? RecordStatus.ACTIVE : status;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public Integer getRankNo() {
-        return rankNo;
-    }
-
-    public RecordStatus getStatus() {
-        return status;
     }
 }

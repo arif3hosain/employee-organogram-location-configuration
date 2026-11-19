@@ -7,6 +7,7 @@ import com.bracits.pms.corehr.organogram.infrastructure.OrgUnitRepository;
 import com.bracits.pms.corehr.organogram.infrastructure.OrgUnitTypeRepository;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,15 +15,11 @@ import java.util.List;
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 public class OrgUnitTypeService {
 
     private final OrgUnitTypeRepository typeRepo;
     private final OrgUnitRepository unitRepo;
-
-    public OrgUnitTypeService(OrgUnitTypeRepository typeRepo, OrgUnitRepository unitRepo) {
-        this.typeRepo = typeRepo;
-        this.unitRepo = unitRepo;
-    }
 
     @Transactional(readOnly = true)
     public List<OrgUnitTypeView> list() {

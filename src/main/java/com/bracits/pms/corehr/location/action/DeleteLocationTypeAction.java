@@ -2,16 +2,14 @@ package com.bracits.pms.corehr.location.action;
 
 import com.bracits.pms.corehr.location.service.LocationTypeService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class DeleteLocationTypeAction extends BaseAction<Long, Long> {
 
     private final LocationTypeService service;
-
-    public DeleteLocationTypeAction(LocationTypeService service) {
-        this.service = service;
-    }
 
     @Override
     protected String preCondition(Long id) {

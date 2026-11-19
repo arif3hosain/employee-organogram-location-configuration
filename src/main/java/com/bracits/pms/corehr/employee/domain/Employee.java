@@ -13,6 +13,9 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
@@ -22,6 +25,8 @@ import java.time.LocalDate;
  */
 @Entity
 @Table(name = "employee")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Employee extends BaseEntity {
 
     @Column(name = "employee_code", nullable = false, unique = true, length = 30)
@@ -59,9 +64,6 @@ public class Employee extends BaseEntity {
     @Column(nullable = false, length = 20)
     private RecordStatus status = RecordStatus.ACTIVE;
 
-    protected Employee() {
-    }
-
     public Employee(String employeeCode, String fullName, String email, String phone, LocalDate joinDate,
                     Designation designation, OrgUnit orgUnit, Location location, Employee supervisor) {
         change(employeeCode, fullName, email, phone, joinDate, designation, orgUnit, location, supervisor, RecordStatus.ACTIVE);
@@ -80,45 +82,5 @@ public class Employee extends BaseEntity {
         this.location = location;
         this.supervisor = supervisor;
         this.status = status == null ? RecordStatus.ACTIVE : status;
-    }
-
-    public String getEmployeeCode() {
-        return employeeCode;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public LocalDate getJoinDate() {
-        return joinDate;
-    }
-
-    public Designation getDesignation() {
-        return designation;
-    }
-
-    public OrgUnit getOrgUnit() {
-        return orgUnit;
-    }
-
-    public Location getLocation() {
-        return location;
-    }
-
-    public Employee getSupervisor() {
-        return supervisor;
-    }
-
-    public RecordStatus getStatus() {
-        return status;
     }
 }

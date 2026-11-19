@@ -169,7 +169,7 @@ You asked for grades to be an entity instead of a hand-typed number on designati
 ### 18 Nov 2026: first version
 
 **Done**
-- [x] Maven project (Spring Boot 3.5.6, Java 21), PostgreSQL `localhost:5433/pmspoc` as `postgres`/`postgres` (overridable with `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`).
+- [x] Maven project (Spring Boot 3.5.6, Java 25), PostgreSQL `localhost:5433/pmspoc` as `postgres`/`postgres` (overridable with `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`).
 - [x] Shared framework: `BaseAction`, `Result`, `UpdateCommand`, `BaseEntity` (id, `@Version`, timestamps, `assertVersion`), `HierarchyPath`, `GlobalExceptionHandler`, `ApiResponses`, `PageView`, `NotificationService` (stub).
 - [x] **Type-wise location:** `LocationType` and `Location` tree. CRUD, search, tree, move with subtree path rebase, level rule, cycle check.
 - [x] **Organogram:** `OrgUnitType`, `OrgUnit` (nature FUNCTIONAL/NON_FUNCTIONAL, optional location), `Designation`, `OrgUnitPost` (sanctioned / filled / vacancy). CRUD, tree chart, filter by nature.

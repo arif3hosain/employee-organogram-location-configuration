@@ -6,6 +6,7 @@ import com.bracits.pms.corehr.location.action.SaveLocationTypeAction;
 import com.bracits.pms.shared.action.Result;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,18 +23,12 @@ import java.util.List;
 @Tag(name = "Location types")
 @RestController
 @RequestMapping("/api/location-types")
+@RequiredArgsConstructor
 public class LocationTypeController {
 
     private final ListLocationTypesAction listAction;
     private final SaveLocationTypeAction saveAction;
     private final DeleteLocationTypeAction deleteAction;
-
-    public LocationTypeController(ListLocationTypesAction listAction, SaveLocationTypeAction saveAction,
-                                  DeleteLocationTypeAction deleteAction) {
-        this.listAction = listAction;
-        this.saveAction = saveAction;
-        this.deleteAction = deleteAction;
-    }
 
     @GetMapping
     public ResponseEntity<Result<List<LocationTypeView>>> list() {

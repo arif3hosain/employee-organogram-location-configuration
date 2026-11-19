@@ -6,20 +6,16 @@ import com.bracits.pms.corehr.organogram.api.OrgUnitView;
 import com.bracits.pms.corehr.organogram.service.OrgUnitService;
 import com.bracits.pms.corehr.organogram.service.OrgUnitTypeService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class CreateOrgUnitAction extends BaseAction<OrgUnitForm, OrgUnitView> {
 
     private final OrgUnitService service;
     private final OrgUnitTypeService typeService;
     private final LocationService locationService;
-
-    public CreateOrgUnitAction(OrgUnitService service, OrgUnitTypeService typeService, LocationService locationService) {
-        this.service = service;
-        this.typeService = typeService;
-        this.locationService = locationService;
-    }
 
     @Override
     protected String preCondition(OrgUnitForm f) {

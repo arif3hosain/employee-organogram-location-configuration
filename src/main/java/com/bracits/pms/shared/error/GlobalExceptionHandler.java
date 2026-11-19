@@ -1,8 +1,7 @@
 package com.bracits.pms.shared.error;
 
 import com.bracits.pms.shared.action.Result;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,9 +18,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * has already rolled back) into the same Result JSON shape the actions return.
  */
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<Result<Void>> notFound(NotFoundException e) {

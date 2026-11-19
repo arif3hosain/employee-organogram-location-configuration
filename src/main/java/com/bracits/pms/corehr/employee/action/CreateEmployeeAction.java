@@ -5,6 +5,7 @@ import com.bracits.pms.corehr.employee.api.EmployeeView;
 import com.bracits.pms.corehr.employee.service.EmployeeService;
 import com.bracits.pms.shared.action.BaseAction;
 import com.bracits.pms.shared.notification.NotificationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -12,17 +13,12 @@ import org.springframework.stereotype.Component;
  * preCondition = validate; execute = one transactional service call; postCondition = mail after commit.
  */
 @Component
+@RequiredArgsConstructor
 public class CreateEmployeeAction extends BaseAction<EmployeeForm, EmployeeView> {
 
     private final EmployeeService service;
     private final EmployeeFormRules rules;
     private final NotificationService notificationService;
-
-    public CreateEmployeeAction(EmployeeService service, EmployeeFormRules rules, NotificationService notificationService) {
-        this.service = service;
-        this.rules = rules;
-        this.notificationService = notificationService;
-    }
 
     @Override
     protected String preCondition(EmployeeForm f) {

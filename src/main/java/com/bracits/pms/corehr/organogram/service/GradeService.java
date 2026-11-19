@@ -8,21 +8,18 @@ import com.bracits.pms.corehr.organogram.infrastructure.GradeRepository;
 import com.bracits.pms.shared.domain.RecordStatus;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class GradeService {
 
     private final GradeRepository repo;
     private final DesignationRepository designationRepo;
-
-    public GradeService(GradeRepository repo, DesignationRepository designationRepo) {
-        this.repo = repo;
-        this.designationRepo = designationRepo;
-    }
 
     @Transactional(readOnly = true)
     public List<GradeView> list() {

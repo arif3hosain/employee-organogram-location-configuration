@@ -5,18 +5,15 @@ import com.bracits.pms.corehr.employee.api.EmployeeView;
 import com.bracits.pms.corehr.employee.service.EmployeeService;
 import com.bracits.pms.shared.action.BaseAction;
 import com.bracits.pms.shared.action.UpdateCommand;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class UpdateEmployeeAction extends BaseAction<UpdateCommand<EmployeeForm>, EmployeeView> {
 
     private final EmployeeService service;
     private final EmployeeFormRules rules;
-
-    public UpdateEmployeeAction(EmployeeService service, EmployeeFormRules rules) {
-        this.service = service;
-        this.rules = rules;
-    }
 
     @Override
     protected String preCondition(UpdateCommand<EmployeeForm> c) {

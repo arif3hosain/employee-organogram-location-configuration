@@ -6,18 +6,15 @@ import com.bracits.pms.corehr.location.service.LocationService;
 import com.bracits.pms.corehr.location.service.LocationTypeService;
 import com.bracits.pms.shared.action.BaseAction;
 import com.bracits.pms.shared.action.UpdateCommand;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class UpdateLocationAction extends BaseAction<UpdateCommand<LocationForm>, LocationView> {
 
     private final LocationService service;
     private final LocationTypeService typeService;
-
-    public UpdateLocationAction(LocationService service, LocationTypeService typeService) {
-        this.service = service;
-        this.typeService = typeService;
-    }
 
     @Override
     protected String preCondition(UpdateCommand<LocationForm> c) {

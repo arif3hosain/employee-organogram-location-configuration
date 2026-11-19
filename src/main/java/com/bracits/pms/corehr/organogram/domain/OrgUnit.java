@@ -12,6 +12,9 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * One box of the organogram (function, department, unit, team...).
@@ -20,6 +23,8 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "org_unit")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrgUnit extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 30)
@@ -54,9 +59,6 @@ public class OrgUnit extends BaseEntity {
     @Column(nullable = false, length = 20)
     private RecordStatus status = RecordStatus.ACTIVE;
 
-    protected OrgUnit() {
-    }
-
     public OrgUnit(String code, String name, OrgUnitType type, OrgUnitNature nature, OrgUnit parent,
                    Location location, Integer sortOrder) {
         change(code, name, type, nature, parent, location, sortOrder, RecordStatus.ACTIVE);
@@ -80,41 +82,5 @@ public class OrgUnit extends BaseEntity {
 
     public void rebasePath(String oldPrefix, String newPrefix) {
         this.path = HierarchyPath.rebase(path, oldPrefix, newPrefix);
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public OrgUnitType getType() {
-        return type;
-    }
-
-    public OrgUnitNature getNature() {
-        return nature;
-    }
-
-    public OrgUnit getParent() {
-        return parent;
-    }
-
-    public Location getLocation() {
-        return location;
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public Integer getSortOrder() {
-        return sortOrder;
-    }
-
-    public RecordStatus getStatus() {
-        return status;
     }
 }

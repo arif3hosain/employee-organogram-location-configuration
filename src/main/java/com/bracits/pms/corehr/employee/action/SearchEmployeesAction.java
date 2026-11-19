@@ -5,18 +5,16 @@ import com.bracits.pms.corehr.employee.api.EmployeeView;
 import com.bracits.pms.corehr.employee.service.EmployeeService;
 import com.bracits.pms.shared.action.BaseAction;
 import com.bracits.pms.shared.api.PageView;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class SearchEmployeesAction extends BaseAction<EmployeeSearch, PageView<EmployeeView>> {
 
     private static final int MAX_PAGE_SIZE = 200;
 
     private final EmployeeService service;
-
-    public SearchEmployeesAction(EmployeeService service) {
-        this.service = service;
-    }
 
     @Override
     protected String preCondition(EmployeeSearch s) {

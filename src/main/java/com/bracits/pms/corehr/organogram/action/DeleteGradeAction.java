@@ -2,16 +2,14 @@ package com.bracits.pms.corehr.organogram.action;
 
 import com.bracits.pms.corehr.organogram.service.GradeService;
 import com.bracits.pms.shared.action.BaseAction;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class DeleteGradeAction extends BaseAction<Long, Long> {
 
     private final GradeService service;
-
-    public DeleteGradeAction(GradeService service) {
-        this.service = service;
-    }
 
     @Override
     protected String preCondition(Long id) {
