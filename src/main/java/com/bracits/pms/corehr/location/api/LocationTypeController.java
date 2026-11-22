@@ -1,11 +1,10 @@
 package com.bracits.pms.corehr.location.api;
 
-import com.bracits.pms.corehr.location.action.DeleteLocationTypeAction;
-import com.bracits.pms.corehr.location.action.ListLocationTypesAction;
-import com.bracits.pms.corehr.location.action.SaveLocationTypeAction;
-import com.bracits.pms.shared.action.Result;
+import com.bracits.pms.corehr.location.service.LocationTypeService;
+import com.bracits.pms.shared.api.ApiResponse;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,36 +18,33 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Controller only: receive request, call action.run(), return Result. No business rules here. */
+/** Thin controller: Bean Validation on the body, then one transactional service call. */
 @Tag(name = "Location types")
 @RestController
 @RequestMapping("/api/location-types")
 @RequiredArgsConstructor
 public class LocationTypeController {
 
-    private final ListLocationTypesAction listAction;
-    private final SaveLocationTypeAction saveAction;
-    private final DeleteLocationTypeAction deleteAction;
+    private final LocationTypeService service;
 
     @GetMapping
-    public ResponseEntity<Result<List<LocationTypeView>>> list() {
-        return ApiResponses.of(listAction.run(null));
+    public ResponseEntity<ApiResponse<List<LocationTypeView>>> list() {
+        return ApiResponses.ok(service.list());
     }
 
     @PostMapping
-    public ResponseEntity<Result<LocationTypeView>> create(@RequestBody LocationTypeForm form) {
-        var f = form == null ? null : new LocationTypeForm(null, form.code(), form.name(), form.levelNo(), form.status(), null);
-        return ApiResponses.created(saveAction.run(f));
+    public ResponseEntity<ApiResponse<LocationTypeView>> create(@Valid @RequestBody LocationTypeForm form) {
+        return ApiResponses.created("Location type saved", service.create(form));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Result<LocationTypeView>> update(@PathVariable Long id, @RequestBody LocationTypeForm form) {
-        var f = form == null ? null : new LocationTypeForm(id, form.code(), form.name(), form.levelNo(), form.status(), form.version());
-        return ApiResponses.of(saveAction.run(f));
+    public ResponseEntity<ApiResponse<LocationTypeView>> update(@PathVariable Long id, @Valid @RequestBody LocationTypeForm form) {
+        return ApiResponses.ok("Location type saved", service.update(id, form));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Result<Long>> delete(@PathVariable Long id) {
-        return ApiResponses.of(deleteAction.run(id));
+    public ResponseEntity<ApiResponse<Long>> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ApiResponses.ok("Location type deleted", id);
     }
 }

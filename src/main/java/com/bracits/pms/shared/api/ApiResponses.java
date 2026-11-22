@@ -1,24 +1,26 @@
 package com.bracits.pms.shared.api;
 
-import com.bracits.pms.shared.action.Result;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-/** Maps an action Result to an HTTP response. A failed preCondition becomes 400. */
+/** Builds successful HTTP responses in the {@link ApiResponse} envelope. Errors are built by GlobalExceptionHandler. */
 public final class ApiResponses {
 
     private ApiResponses() {
     }
 
-    public static <T> ResponseEntity<Result<T>> of(Result<T> result) {
-        return of(result, HttpStatus.OK);
+    /** 200 with data only (reads). */
+    public static <T> ResponseEntity<ApiResponse<T>> ok(T data) {
+        return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
-    public static <T> ResponseEntity<Result<T>> created(Result<T> result) {
-        return of(result, HttpStatus.CREATED);
+    /** 200 with a user-facing message (updates, deletes). */
+    public static <T> ResponseEntity<ApiResponse<T>> ok(String message, T data) {
+        return ResponseEntity.ok(ApiResponse.ok(message, data));
     }
 
-    private static <T> ResponseEntity<Result<T>> of(Result<T> result, HttpStatus successStatus) {
-        return ResponseEntity.status(result.success() ? successStatus : HttpStatus.BAD_REQUEST).body(result);
+    /** 201 with a user-facing message (creates). */
+    public static <T> ResponseEntity<ApiResponse<T>> created(String message, T data) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(message, data));
     }
 }

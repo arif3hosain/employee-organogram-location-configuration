@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * End-to-end through Controller -> Action -> Service -> DB on the seed data (V2 migration).
+ * End-to-end through Controller -> Service -> DB on the seed data (V2 migration).
  * Seed ids follow insert order: locations BD=1, B-HO=7, B-MIR10=8, B-AGR=9 (V4 removed the sample regions/areas 2-6
  * and added divisions/districts/upazilas from id 10);
  * org units ORG=1, F-TECH=2, F-CS=3, D-SE=4, D-QA=5, D-HR=6, D-FIN=7, U-ERP=8;
@@ -98,7 +98,7 @@ class CoreHrFlowIntegrationTest {
                 .andExpect(jsonPath("$.data[0].gradeCode").value("G1"))
                 .andExpect(jsonPath("$.data[5].gradeName").value("Grade 6 - Staff"));
 
-        // a designation without a grade fails preCondition
+        // a designation without a grade fails Bean Validation -> 400
         mvc.perform(post("/api/designations").contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"code":"INT","name":"Intern"}
@@ -119,7 +119,8 @@ class CoreHrFlowIntegrationTest {
                         .content("""
                                 {"code":"G9","name":"Dup rank","rankNo":3}
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Another grade already has rank 3"));
 
         // employees show the grade of their designation
         mvc.perform(get("/api/employees/8"))
@@ -143,7 +144,7 @@ class CoreHrFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(4));
 
-        // preCondition failure -> 400, nothing saved
+        // Bean Validation failure -> 400, nothing saved
         mvc.perform(post("/api/employees").contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"employeeCode":"E0100","fullName":"New Person","email":"bad-email",
@@ -163,13 +164,13 @@ class CoreHrFlowIntegrationTest {
                 .andExpect(jsonPath("$.data.supervisorName").value("Tanvir Hasan"))
                 .andExpect(jsonPath("$.data.version").value(0));
 
-        // duplicate code -> 400 from preCondition
+        // duplicate code -> 409 from the service
         mvc.perform(post("/api/employees").contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"employeeCode":"E0100","fullName":"Dup","email":"dup@example.com",
                                  "joinDate":"2025-01-01","designationId":6,"orgUnitId":8,"locationId":8}
                                 """))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message", containsString("already exists")));
     }
 
@@ -200,7 +201,7 @@ class CoreHrFlowIntegrationTest {
     @Test
     void cannotDeleteASupervisor() throws Exception {
         mvc.perform(delete("/api/employees/7"))                              // E0004 supervises E0005
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict());
         mvc.perform(delete("/api/employees/8"))                              // E0005 supervises nobody
                 .andExpect(status().isOk());
     }

@@ -3,7 +3,7 @@
 export type RecordStatus = 'ACTIVE' | 'INACTIVE';
 export type OrgUnitNature = 'FUNCTIONAL' | 'NON_FUNCTIONAL';
 
-/** Every endpoint returns this envelope (shared.action.Result). */
+/** Every endpoint returns this envelope (shared.api.ApiResponse). */
 export interface Result<T> {
   success: boolean;
   message: string | null;

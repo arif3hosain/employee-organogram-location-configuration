@@ -1,11 +1,10 @@
 package com.bracits.pms.corehr.organogram.api;
 
-import com.bracits.pms.corehr.organogram.action.DeleteOrgUnitTypeAction;
-import com.bracits.pms.corehr.organogram.action.ListOrgUnitTypesAction;
-import com.bracits.pms.corehr.organogram.action.SaveOrgUnitTypeAction;
-import com.bracits.pms.shared.action.Result;
+import com.bracits.pms.corehr.organogram.service.OrgUnitTypeService;
+import com.bracits.pms.shared.api.ApiResponse;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,35 +18,33 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** Thin controller: Bean Validation on the body, then one transactional service call. */
 @Tag(name = "Org unit types")
 @RestController
 @RequestMapping("/api/org-unit-types")
 @RequiredArgsConstructor
 public class OrgUnitTypeController {
 
-    private final ListOrgUnitTypesAction listAction;
-    private final SaveOrgUnitTypeAction saveAction;
-    private final DeleteOrgUnitTypeAction deleteAction;
+    private final OrgUnitTypeService service;
 
     @GetMapping
-    public ResponseEntity<Result<List<OrgUnitTypeView>>> list() {
-        return ApiResponses.of(listAction.run(null));
+    public ResponseEntity<ApiResponse<List<OrgUnitTypeView>>> list() {
+        return ApiResponses.ok(service.list());
     }
 
     @PostMapping
-    public ResponseEntity<Result<OrgUnitTypeView>> create(@RequestBody OrgUnitTypeForm form) {
-        var f = form == null ? null : new OrgUnitTypeForm(null, form.code(), form.name(), form.levelNo(), form.status(), null);
-        return ApiResponses.created(saveAction.run(f));
+    public ResponseEntity<ApiResponse<OrgUnitTypeView>> create(@Valid @RequestBody OrgUnitTypeForm form) {
+        return ApiResponses.created("Org unit type saved", service.create(form));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Result<OrgUnitTypeView>> update(@PathVariable Long id, @RequestBody OrgUnitTypeForm form) {
-        var f = form == null ? null : new OrgUnitTypeForm(id, form.code(), form.name(), form.levelNo(), form.status(), form.version());
-        return ApiResponses.of(saveAction.run(f));
+    public ResponseEntity<ApiResponse<OrgUnitTypeView>> update(@PathVariable Long id, @Valid @RequestBody OrgUnitTypeForm form) {
+        return ApiResponses.ok("Org unit type saved", service.update(id, form));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Result<Long>> delete(@PathVariable Long id) {
-        return ApiResponses.of(deleteAction.run(id));
+    public ResponseEntity<ApiResponse<Long>> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ApiResponses.ok("Org unit type deleted", id);
     }
 }

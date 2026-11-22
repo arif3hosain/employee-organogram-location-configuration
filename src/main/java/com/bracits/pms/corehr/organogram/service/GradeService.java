@@ -26,42 +26,31 @@ public class GradeService {
         return repo.findAllByOrderByRankNoAsc().stream().map(GradeView::from).toList();
     }
 
-    @Transactional(readOnly = true)
-    public boolean exists(Long id) {
-        return repo.existsById(id);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean codeExists(String code, Long excludeId) {
+    private boolean codeExists(String code, Long excludeId) {
         return excludeId == null
                 ? repo.existsByCodeIgnoreCase(code.trim())
                 : repo.existsByCodeIgnoreCaseAndIdNot(code.trim(), excludeId);
     }
 
-    @Transactional(readOnly = true)
-    public boolean rankExists(Integer rankNo, Long excludeId) {
+    private boolean rankExists(Integer rankNo, Long excludeId) {
         return excludeId == null ? repo.existsByRankNo(rankNo) : repo.existsByRankNoAndIdNot(rankNo, excludeId);
     }
 
     @Transactional
-    public GradeView save(GradeForm f) {
-        if (codeExists(f.code(), f.id())) {
-            throw new BusinessException("Grade code already exists: " + f.code());
-        }
-        if (rankExists(f.rankNo(), f.id())) {
-            throw new BusinessException("Another grade already has rank " + f.rankNo());
-        }
-        Grade g;
-        if (f.id() == null) {
-            g = new Grade(f.code(), f.name(), f.rankNo());
-        } else {
-            g = findEntity(f.id());
-            g.assertVersion(f.version());
-            // Making a grade INACTIVE is allowed: designations already on it keep it,
-            // only new assignments are blocked (findActiveEntity).
-            g.change(f.code(), f.name(), f.rankNo(), f.status());
-        }
-        return GradeView.from(repo.save(g));
+    public GradeView create(GradeForm f) {
+        checkUnique(f, null);
+        return GradeView.from(repo.save(new Grade(f.code(), f.name(), f.rankNo())));
+    }
+
+    @Transactional
+    public GradeView update(Long id, GradeForm f) {
+        Grade g = findEntity(id);
+        g.assertVersion(f.version());
+        checkUnique(f, id);
+        // Making a grade INACTIVE is allowed: designations already on it keep it,
+        // only new assignments are blocked (findActiveEntity).
+        g.change(f.code(), f.name(), f.rankNo(), f.status());
+        return GradeView.from(g);
     }
 
     @Transactional
@@ -71,6 +60,15 @@ public class GradeService {
             throw new BusinessException("Grade is used by designations. Move them to another grade or make it INACTIVE.");
         }
         repo.delete(g);
+    }
+
+    private void checkUnique(GradeForm f, Long excludeId) {
+        if (codeExists(f.code(), excludeId)) {
+            throw new BusinessException("Grade code already exists: " + f.code());
+        }
+        if (rankExists(f.rankNo(), excludeId)) {
+            throw new BusinessException("Another grade already has rank " + f.rankNo());
+        }
     }
 
     @Transactional(readOnly = true)

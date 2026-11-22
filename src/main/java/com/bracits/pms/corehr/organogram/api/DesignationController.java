@@ -1,11 +1,10 @@
 package com.bracits.pms.corehr.organogram.api;
 
-import com.bracits.pms.corehr.organogram.action.DeleteDesignationAction;
-import com.bracits.pms.corehr.organogram.action.ListDesignationsAction;
-import com.bracits.pms.corehr.organogram.action.SaveDesignationAction;
-import com.bracits.pms.shared.action.Result;
+import com.bracits.pms.corehr.organogram.service.DesignationService;
+import com.bracits.pms.shared.api.ApiResponse;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,35 +18,33 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** Thin controller: Bean Validation on the body, then one transactional service call. */
 @Tag(name = "Designations")
 @RestController
 @RequestMapping("/api/designations")
 @RequiredArgsConstructor
 public class DesignationController {
 
-    private final ListDesignationsAction listAction;
-    private final SaveDesignationAction saveAction;
-    private final DeleteDesignationAction deleteAction;
+    private final DesignationService service;
 
     @GetMapping
-    public ResponseEntity<Result<List<DesignationView>>> list() {
-        return ApiResponses.of(listAction.run(null));
+    public ResponseEntity<ApiResponse<List<DesignationView>>> list() {
+        return ApiResponses.ok(service.list());
     }
 
     @PostMapping
-    public ResponseEntity<Result<DesignationView>> create(@RequestBody DesignationForm form) {
-        var f = form == null ? null : new DesignationForm(null, form.code(), form.name(), form.gradeId(), form.status(), null);
-        return ApiResponses.created(saveAction.run(f));
+    public ResponseEntity<ApiResponse<DesignationView>> create(@Valid @RequestBody DesignationForm form) {
+        return ApiResponses.created("Designation saved", service.create(form));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Result<DesignationView>> update(@PathVariable Long id, @RequestBody DesignationForm form) {
-        var f = form == null ? null : new DesignationForm(id, form.code(), form.name(), form.gradeId(), form.status(), form.version());
-        return ApiResponses.of(saveAction.run(f));
+    public ResponseEntity<ApiResponse<DesignationView>> update(@PathVariable Long id, @Valid @RequestBody DesignationForm form) {
+        return ApiResponses.ok("Designation saved", service.update(id, form));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Result<Long>> delete(@PathVariable Long id) {
-        return ApiResponses.of(deleteAction.run(id));
+    public ResponseEntity<ApiResponse<Long>> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ApiResponses.ok("Designation deleted", id);
     }
 }

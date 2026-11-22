@@ -86,22 +86,44 @@ A child unit inherits its parent's nature unless one is set, and the organizatio
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | One `BaseAction<I,O>` with `run()` = `preCondition` → `execute` → `postCondition`, returning `Result<T>(success, message, data)` | Guide §3.4. `Result` adds a `data` payload so CRUD can return the saved record. |
-| D2 | `postCondition(input, output)` gets the input as well as the output | Mail text often needs both. A small extension to the guide's signature. |
-| D3 | Reads go through actions too (`GetXxxAction`, `SearchXxxAction`) | Guide rule: controllers never call services. |
-| D4 | Critical checks run twice: in `preCondition` (fast, friendly 400) and again in the service (409) | Guide rule 5: data can change between `preCondition` and the transaction. |
+| D1 | ~~One `BaseAction<I,O>` with `run()` = `preCondition` → `execute` → `postCondition`, returning `Result<T>(success, message, data)` | Guide §3.4. `Result` adds a `data` payload so CRUD can return the saved record.~~ **Revised 21 Nov:** no Action layer. Controller → `@Transactional` service; the envelope is `ApiResponse<T>(success, message, data)` | One-call Actions added a class per endpoint for plain CRUD. Standard Spring covers each step: Bean Validation, service transactions, after-commit events. |
+| D2 | ~~`postCondition(input, output)` gets the input as well as the output~~ **Revised 21 Nov:** services publish domain events; `@TransactionalEventListener(AFTER_COMMIT)` sends mail | Same guarantee (no mail after a rollback) using the Spring mechanism built for it. |
+| D3 | ~~Reads go through actions too~~ **Revised 20 Nov (option B, hybrid):** reads go Controller → read-only service method; only writes have Actions | Pass-through read Actions added nothing, and the Spring standard is Controller → Service. ArchUnit allows controllers to call only `@Transactional(readOnly = true)` service methods. Superseded by D1 (21 Nov): no Actions at all. |
+| D4 | ~~Critical checks run twice~~ **Revised 21 Nov:** format checks are Bean Validation (400); existence, uniqueness and business rules are checked once, in the service (404 / 409) | Checking inside the transaction is the only check that can't go stale. |
 | D5 | Locations and org units are **typed self-referencing trees** with a materialized `path` (`/1/5/12/`) | A new level needs no schema change. Subtree search is a single `LIKE` ("everyone under Technology"), and moves are checked for cycles. |
 | D6 | Level rule: a child's type level must be greater than its parent's; skipping levels is allowed | Flexible, without per-type parent rules. |
 | D7 | Status is stored as VARCHAR (`ACTIVE`/`INACTIVE`), not BOOLEAN | Keeps the DDL portable to Oracle. |
 | D8 | Sub-modules talk through services only (organogram → `LocationService`, employee → organogram and location services) | Guide §2.3. The one exception is the headcount query in `OrgUnitPostRepository`: it reads the `employee` table with native SQL so that organogram doesn't depend on employee. |
 | D9 | `open-in-view=false`, and services return DTOs built inside the transaction | No lazy-loading surprises in controllers. |
-| D10 | Mail is a logging stub (`NotificationService`) called only from `postCondition` | Guide rule 4. The real notification module comes later. |
+| D10 | Mail is a logging stub (`NotificationService`) called only from after-commit event listeners | Guide rule 4. The real notification module comes later. |
 | D11 | No MapStruct, Lombok or Spring Modulith yet | Keeps the POC small. Add them when the module count grows. |
 | D12 | Tests use H2 in PostgreSQL mode with the same Flyway scripts | Fast and needs no database. Move to Testcontainers (guide §2.2) once Docker is available in CI. |
 
 ---
 
 ## Progress log
+
+### 21 Nov 2026: Action classes removed (standard Spring layering)
+
+- [x] Removed `BaseAction`, `Result`, `UpdateCommand`, the 19 write Actions and the `*FormRules` helpers.
+- [x] Controllers call services directly: `@Valid @RequestBody` → one `@Transactional` service method → `ApiResponses.ok/created(message, data)`. URLs and the `{ success, message, data }` JSON are unchanged.
+- [x] Input rules moved to Bean Validation annotations on the `*Form` records, with the same messages. `version` is required on employee update via the `OnUpdate` validation group.
+- [x] `GlobalExceptionHandler` maps `MethodArgumentNotValidException` to 400 with `data = { field: message }`.
+- [x] Type/grade/designation services split `save(form)` into `create(form)` and `update(id, form)`; the id comes from the URL, not the body. `OrgUnitPostService.save(orgUnitId, form)` likewise.
+- [x] Employee mail: `EmployeeService` publishes `EmployeeCreatedEvent` / `EmployeeDeletedEvent`; `EmployeeNotificationListener` sends mail `AFTER_COMMIT`.
+- [x] **Status codes changed:** duplicate code/email/rank and "employee still supervises others" are now 409 (were 400 from `preCondition`); an unknown referenced id is 404 (was 400). The frontend shows `message` for any status, so it needs no change.
+- [x] `ArchitectureTest` rewritten for the new layering; `BaseActionTest` and `CreateEmployeeActionTest` replaced by `EmployeeNotificationIntegrationTest` (mail only after commit, none on 400/409, version required).
+
+### 20 Nov 2026: hybrid request flow (option B)
+
+- [x] Removed the 13 read Actions: `ListLocationTypes`, `GetLocation`, `SearchLocations`, `GetLocationTree`, `ListOrgUnitTypes`, `ListDesignations`, `ListGrades`, `GetOrgUnit`, `SearchOrgUnits`, `GetOrganogramTree`, `ListOrgUnitPosts`, `GetEmployee` and `SearchEmployees`. Their endpoints now call the read-only service method directly, with the same URLs and the same `Result` JSON, so the **frontend is unchanged**.
+- [x] The 19 write Actions (Create/Update/Delete/Save…) are kept unchanged.
+- [x] Checks that lived in read Actions moved into the services: posts of an unknown unit return 404, and employee search clamps page/size (0 ≤ page, 1 ≤ size ≤ 200).
+- [x] New `ApiResponses.ok(data)` for reads.
+- [x] `ArchitectureTest`: a controller may call a service method **only if it is `@Transactional(readOnly = true)`**, and never a repository. A write therefore can't skip its Action.
+- [x] Applied on top of your Java 25 + Lombok (`@RequiredArgsConstructor`) version of the code.
+- [x] Migration guide §2.3, §3.3 and §3.4 updated (decision note, both flows, rules 6–7, legacy read-action mapping), plus principle 7 in CLAUDE.md.
+
 
 ### 19 Nov 2026: drop-down tree for locations
 

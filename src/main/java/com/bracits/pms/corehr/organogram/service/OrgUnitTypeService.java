@@ -26,35 +26,28 @@ public class OrgUnitTypeService {
         return typeRepo.findAllByOrderByLevelNoAscNameAsc().stream().map(OrgUnitTypeView::from).toList();
     }
 
-    @Transactional(readOnly = true)
-    public boolean codeExists(String code, Long excludeId) {
+    private boolean codeExists(String code, Long excludeId) {
         return excludeId == null
                 ? typeRepo.existsByCodeIgnoreCase(code.trim())
                 : typeRepo.existsByCodeIgnoreCaseAndIdNot(code.trim(), excludeId);
     }
 
-    @Transactional(readOnly = true)
-    public boolean exists(Long id) {
-        return typeRepo.existsById(id);
+    @Transactional
+    public OrgUnitTypeView create(OrgUnitTypeForm f) {
+        checkUniqueCode(f.code(), null);
+        return OrgUnitTypeView.from(typeRepo.save(new OrgUnitType(f.code(), f.name(), f.levelNo())));
     }
 
     @Transactional
-    public OrgUnitTypeView save(OrgUnitTypeForm f) {
-        if (codeExists(f.code(), f.id())) {
-            throw new BusinessException("Org unit type code already exists: " + f.code());
+    public OrgUnitTypeView update(Long id, OrgUnitTypeForm f) {
+        OrgUnitType type = findEntity(id);
+        type.assertVersion(f.version());
+        checkUniqueCode(f.code(), id);
+        if (!Objects.equals(type.getLevelNo(), f.levelNo()) && unitRepo.existsByTypeId(id)) {
+            throw new BusinessException("Level cannot change while org units use this type");
         }
-        OrgUnitType type;
-        if (f.id() == null) {
-            type = new OrgUnitType(f.code(), f.name(), f.levelNo());
-        } else {
-            type = findEntity(f.id());
-            type.assertVersion(f.version());
-            if (!Objects.equals(type.getLevelNo(), f.levelNo()) && unitRepo.existsByTypeId(type.getId())) {
-                throw new BusinessException("Level cannot change while org units use this type");
-            }
-            type.change(f.code(), f.name(), f.levelNo(), f.status());
-        }
-        return OrgUnitTypeView.from(typeRepo.save(type));
+        type.change(f.code(), f.name(), f.levelNo(), f.status());
+        return OrgUnitTypeView.from(type);
     }
 
     @Transactional
@@ -64,6 +57,12 @@ public class OrgUnitTypeService {
             throw new BusinessException("Org unit type is in use and cannot be deleted. Make it INACTIVE instead.");
         }
         typeRepo.delete(type);
+    }
+
+    private void checkUniqueCode(String code, Long excludeId) {
+        if (codeExists(code, excludeId)) {
+            throw new BusinessException("Org unit type code already exists: " + code);
+        }
     }
 
     @Transactional(readOnly = true)

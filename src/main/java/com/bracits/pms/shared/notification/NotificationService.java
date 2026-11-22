@@ -4,9 +4,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * POC stand-in for the product-owned notification module (guide §7.9).
- * It only logs. Called from postCondition, i.e. after the transaction has committed.
- * Deliberately NOT @Transactional.
+ * POC stand-in for the product-owned notification module (guide §7.9). It only logs.
+ * Called from {@code @TransactionalEventListener(phase = AFTER_COMMIT)} listeners, so mail is sent
+ * only after the data change has committed. Deliberately NOT @Transactional.
  */
 @Service
 @Slf4j

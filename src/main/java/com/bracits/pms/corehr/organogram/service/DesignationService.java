@@ -30,35 +30,29 @@ public class DesignationService {
         return repo.findAllWithGrade().stream().map(DesignationView::from).toList();
     }
 
-    @Transactional(readOnly = true)
-    public boolean codeExists(String code, Long excludeId) {
+    private boolean codeExists(String code, Long excludeId) {
         return excludeId == null
                 ? repo.existsByCodeIgnoreCase(code.trim())
                 : repo.existsByCodeIgnoreCaseAndIdNot(code.trim(), excludeId);
     }
 
-    @Transactional(readOnly = true)
-    public boolean exists(Long id) {
-        return repo.existsById(id);
+    @Transactional
+    public DesignationView create(DesignationForm f) {
+        checkUniqueCode(f.code(), null);
+        Designation d = new Designation(f.code(), f.name(), gradeService.findActiveEntity(f.gradeId()));
+        return DesignationView.from(repo.save(d));
     }
 
     @Transactional
-    public DesignationView save(DesignationForm f) {
-        if (codeExists(f.code(), f.id())) {
-            throw new BusinessException("Designation code already exists: " + f.code());
-        }
-        Designation d;
-        if (f.id() == null) {
-            d = new Designation(f.code(), f.name(), gradeService.findActiveEntity(f.gradeId()));
-        } else {
-            d = findEntity(f.id());
-            d.assertVersion(f.version());
-            // keep the current grade even if it was made INACTIVE later; a new choice must be active
-            Grade grade = Objects.equals(d.getGrade().getId(), f.gradeId())
-                    ? d.getGrade() : gradeService.findActiveEntity(f.gradeId());
-            d.change(f.code(), f.name(), grade, f.status());
-        }
-        return DesignationView.from(repo.save(d));
+    public DesignationView update(Long id, DesignationForm f) {
+        Designation d = findEntity(id);
+        d.assertVersion(f.version());
+        checkUniqueCode(f.code(), id);
+        // keep the current grade even if it was made INACTIVE later; a new choice must be active
+        Grade grade = Objects.equals(d.getGrade().getId(), f.gradeId())
+                ? d.getGrade() : gradeService.findActiveEntity(f.gradeId());
+        d.change(f.code(), f.name(), grade, f.status());
+        return DesignationView.from(d);
     }
 
     @Transactional
@@ -69,6 +63,12 @@ public class DesignationService {
         }
         repo.delete(d);
         repo.flush();                                      // surface FK violations (employees) here
+    }
+
+    private void checkUniqueCode(String code, Long excludeId) {
+        if (codeExists(code, excludeId)) {
+            throw new BusinessException("Designation code already exists: " + code);
+        }
     }
 
     @Transactional(readOnly = true)

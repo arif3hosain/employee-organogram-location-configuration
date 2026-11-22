@@ -8,6 +8,7 @@ import com.bracits.pms.corehr.organogram.domain.OrgUnitPost;
 import com.bracits.pms.corehr.organogram.infrastructure.OrgUnitPostRepository;
 import com.bracits.pms.shared.error.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrgUnitPostService {
 
     private final OrgUnitPostRepository repo;
@@ -26,27 +28,29 @@ public class OrgUnitPostService {
     /** Sanctioned posts of one unit with filled and vacant counts. */
     @Transactional(readOnly = true)
     public List<OrgUnitPostView> listByOrgUnit(Long orgUnitId) {
+        if (!orgUnitService.exists(orgUnitId)) {
+            throw new NotFoundException("Org unit", orgUnitId);   // -> 404
+        }
         Map<Long, Integer> filled = filledByDesignation(orgUnitId);
         return repo.findByOrgUnit(orgUnitId).stream()
                 .map(p -> toView(p, filled.getOrDefault(p.getDesignation().getId(), 0)))
                 .toList();
     }
 
-    @Transactional(readOnly = true)
-    public boolean exists(Long id) {
-        return repo.existsById(id);
-    }
-
     /** Create the post line, or change its sanctioned count if it already exists. */
     @Transactional
-    public OrgUnitPostView save(OrgUnitPostForm f) {
-        OrgUnit unit = orgUnitService.findActiveEntity(f.orgUnitId());
+    public OrgUnitPostView save(Long orgUnitId, OrgUnitPostForm f) {
+        OrgUnit unit = orgUnitService.findActiveEntity(orgUnitId);
         Designation designation = designationService.findActiveEntity(f.designationId());
         OrgUnitPost post = repo.findByOrgUnitIdAndDesignationId(unit.getId(), designation.getId())
                 .orElseGet(() -> new OrgUnitPost(unit, designation, f.sanctionedCount()));
         post.changeSanctionedCount(f.sanctionedCount());
         post = repo.save(post);
-        return toView(post, filledByDesignation(unit.getId()).getOrDefault(designation.getId(), 0));
+        OrgUnitPostView view = toView(post, filledByDesignation(unit.getId()).getOrDefault(designation.getId(), 0));
+        if (view.vacancy() < 0) {
+            log.warn("Org unit {} is over-staffed for {} by {}", view.orgUnitId(), view.designationCode(), -view.vacancy());
+        }
+        return view;
     }
 
     @Transactional

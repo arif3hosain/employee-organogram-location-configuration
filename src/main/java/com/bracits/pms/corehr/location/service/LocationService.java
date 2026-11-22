@@ -60,16 +60,10 @@ public class LocationService {
         return roots;
     }
 
-    @Transactional(readOnly = true)
-    public boolean codeExists(String code, Long excludeId) {
+    private boolean codeExists(String code, Long excludeId) {
         return excludeId == null
                 ? repo.existsByCodeIgnoreCase(code.trim())
                 : repo.existsByCodeIgnoreCaseAndIdNot(code.trim(), excludeId);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean exists(Long id) {
-        return repo.existsById(id);
     }
 
     /* ------------------------------ commands ----------------------------- */

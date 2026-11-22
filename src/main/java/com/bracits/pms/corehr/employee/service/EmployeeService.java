@@ -4,6 +4,8 @@ import com.bracits.pms.corehr.employee.api.EmployeeForm;
 import com.bracits.pms.corehr.employee.api.EmployeeSearch;
 import com.bracits.pms.corehr.employee.api.EmployeeView;
 import com.bracits.pms.corehr.employee.domain.Employee;
+import com.bracits.pms.corehr.employee.event.EmployeeCreatedEvent;
+import com.bracits.pms.corehr.employee.event.EmployeeDeletedEvent;
 import com.bracits.pms.corehr.employee.infrastructure.EmployeeRepository;
 import com.bracits.pms.corehr.location.domain.Location;
 import com.bracits.pms.corehr.location.service.LocationService;
@@ -16,6 +18,7 @@ import com.bracits.pms.shared.domain.RecordStatus;
 import com.bracits.pms.shared.error.BusinessException;
 import com.bracits.pms.shared.error.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class EmployeeService {
     private final DesignationService designationService;
     private final OrgUnitService orgUnitService;
     private final LocationService locationService;
+    private final ApplicationEventPublisher events;
 
     /* ------------------------------ queries ------------------------------ */
 
@@ -43,49 +47,31 @@ public class EmployeeService {
         return EmployeeView.from(load(id));
     }
 
+    /** Paged search. Out-of-range page/size are clamped (page >= 0, 1 <= size <= 200) rather than rejected. */
     @Transactional(readOnly = true)
     public PageView<EmployeeView> search(EmployeeSearch s) {
+        int page = Math.max(s.page(), 0);
+        int size = Math.min(Math.max(s.size(), 1), 200);
         // LIKE patterns are never null: "%" means "no filter" (see EmployeeRepository.search)
         String qPattern = s.q() == null || s.q().isBlank() ? "%" : "%" + s.q().trim().toLowerCase() + "%";
         String orgPattern = s.orgUnitId() == null ? "%" : orgUnitService.get(s.orgUnitId()).path() + "%";
         String locationPattern = s.locationId() == null ? "%" : locationService.get(s.locationId()).path() + "%";
-        var pageable = PageRequest.of(s.page(), s.size(), Sort.by("employeeCode"));
+        var pageable = PageRequest.of(page, size, Sort.by("employeeCode"));
         return PageView.of(repo.search(qPattern, orgPattern, locationPattern, s.designationId(), s.status(), pageable),
                 EmployeeView::from);
     }
 
-    @Transactional(readOnly = true)
-    public boolean exists(Long id) {
-        return repo.existsById(id);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean codeExists(String code, Long excludeId) {
-        return excludeId == null
-                ? repo.existsByEmployeeCodeIgnoreCase(code.trim())
-                : repo.existsByEmployeeCodeIgnoreCaseAndIdNot(code.trim(), excludeId);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean emailExists(String email, Long excludeId) {
-        return excludeId == null
-                ? repo.existsByEmailIgnoreCase(email.trim())
-                : repo.existsByEmailIgnoreCaseAndIdNot(email.trim(), excludeId);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean hasSubordinates(Long id) {
-        return repo.existsBySupervisorId(id);
-    }
-
     /* ------------------------------ commands ----------------------------- */
 
+    /** Mail to the new employee and their supervisor is sent after commit (EmployeeNotificationListener). */
     @Transactional
     public EmployeeView create(EmployeeForm f) {
         checkUnique(f, null);
         Employee e = new Employee(f.employeeCode(), f.fullName(), f.email(), f.phone(), f.joinDate(),
                 designation(f), orgUnit(f), location(f), supervisor(f.supervisorId()));
-        return EmployeeView.from(repo.save(e));
+        EmployeeView view = EmployeeView.from(repo.save(e));
+        events.publishEvent(new EmployeeCreatedEvent(view));
+        return view;
     }
 
     @Transactional
@@ -106,7 +92,7 @@ public class EmployeeService {
         return EmployeeView.from(e);
     }
 
-    /** Returns the deleted employee's view so postCondition can still use name and email. */
+    /** Returns the deleted employee's view; the "removed" mail is sent after commit. */
     @Transactional
     public EmployeeView delete(Long id) {
         Employee e = load(id);
@@ -116,6 +102,7 @@ public class EmployeeService {
         EmployeeView view = EmployeeView.from(e);
         repo.delete(e);
         repo.flush();
+        events.publishEvent(new EmployeeDeletedEvent(view));
         return view;
     }
 
@@ -126,10 +113,18 @@ public class EmployeeService {
     }
 
     private void checkUnique(EmployeeForm f, Long excludeId) {
-        if (codeExists(f.employeeCode(), excludeId)) {
+        String code = f.employeeCode().trim();
+        String email = f.email().trim();
+        boolean codeTaken = excludeId == null
+                ? repo.existsByEmployeeCodeIgnoreCase(code)
+                : repo.existsByEmployeeCodeIgnoreCaseAndIdNot(code, excludeId);
+        if (codeTaken) {
             throw new BusinessException("Employee code already exists: " + f.employeeCode());
         }
-        if (emailExists(f.email(), excludeId)) {
+        boolean emailTaken = excludeId == null
+                ? repo.existsByEmailIgnoreCase(email)
+                : repo.existsByEmailIgnoreCaseAndIdNot(email, excludeId);
+        if (emailTaken) {
             throw new BusinessException("Email already used by another employee: " + f.email());
         }
     }

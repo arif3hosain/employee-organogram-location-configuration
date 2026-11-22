@@ -6,7 +6,7 @@ import com.bracits.pms.shared.domain.RecordStatus;
 import java.time.LocalDate;
 
 public record EmployeeView(Long id, String employeeCode, String fullName, String email, String phone,
-                           LocalDate joinDate,
+                           LocalDate joinDate,       
                            Long designationId, String designationName,
                            Long gradeId, String gradeCode, String gradeName,
                            Long orgUnitId, String orgUnitName,

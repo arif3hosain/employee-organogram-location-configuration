@@ -1,8 +1,10 @@
 ## Dynamic Configuration of Organogram and Location Hierarchy
 
-A proof of concept for the new **PMS (Performance Management System)** backend and UI. It shows how the core HR master data that PMS depends on (locations, the organogram, grades, designations, sanctioned posts and employees) can be modelled, validated and managed in the new stack. It also demonstrates the request flow from the PMS Technical Migration Guide §3.4:
+A proof of concept for the new **PMS (Performance Management System)** backend and UI. It shows how the core HR master data that PMS depends on (locations, the organogram, grades, designations, sanctioned posts and employees) can be modelled, validated and managed in the new stack. It uses the standard Spring layering:
 
-**Controller → Action (preCondition / execute / postCondition) → Service**
+- **Controller** → validates the body with Bean Validation (`@Valid`) and calls one service method
+- **Service** → the only `@Transactional` layer; enforces business rules and publishes domain events
+- **After commit** → `@TransactionalEventListener(phase = AFTER_COMMIT)` listeners send mail
 
 There is no security in this POC. Progress and open questions are tracked in [POC_NOTES.md](POC_NOTES.md).
 
@@ -322,12 +324,13 @@ curl -s "localhost:8080/api/org-units?nature=NON_FUNCTIONAL" | jq
 
 ```
 com.bracits.pms
- ├── shared/                  BaseAction, Result, BaseEntity, HierarchyPath, error handling, NotificationService (logs only)
+ ├── shared/                  ApiResponse, BaseEntity, HierarchyPath, error handling, NotificationService (logs only)
  └── corehr/
       ├── location/           LocationType + Location tree
       ├── organogram/         OrgUnitType, OrgUnit tree, Grade, Designation, OrgUnitPost (sanctioned posts)
       └── employee/           Employee
-          each one: api/ (controller + DTOs) · action/ · service/ · domain/ · infrastructure/ (repositories)
+          each one: api/ (controller + DTOs) · service/ · domain/ · infrastructure/ (repositories)
+          employee also has event/ (domain events + the after-commit mail listener)
 
 frontend/src/app
  ├── core/        api.service, models, error.interceptor, notify.service, lookups
@@ -335,7 +338,7 @@ frontend/src/app
  └── features/    employees/ · organogram/ · locations/ · setup/
 ```
 
-`ArchitectureTest` (ArchUnit) fails the build if a layer rule is broken. For example, it fails if an action is `@Transactional`, a controller calls a service, an action uses a repository, or a service sends mail.
+`ArchitectureTest` (ArchUnit) fails the build if a layer rule is broken. For example, it fails if anything outside a `service` package is `@Transactional`, a controller uses a repository, a repository is used outside a service, or a service sends mail directly (services publish events instead).
 
 ### Lombok conventions
 
@@ -343,26 +346,30 @@ Lombok generates the repetitive code at compile time. `pom.xml` registers it as 
 
 | Where | Annotation | Replaces |
 |---|---|---|
-| Controllers, actions, services | `@RequiredArgsConstructor` | the constructor that injects the `private final` dependencies |
+| Controllers, services, listeners | `@RequiredArgsConstructor` | the constructor that injects the `private final` dependencies |
 | Entities (and `BaseEntity`) | `@Getter` | hand-written getters |
 | Entities | `@NoArgsConstructor(access = AccessLevel.PROTECTED)` | the empty constructor JPA needs |
 | Classes that log | `@Slf4j` | `private static final Logger log = LoggerFactory.getLogger(...)` |
 
 Rules:
 - **No `@Setter` or `@Data` on entities.** Entities change only through intent methods such as `change(...)`, `refreshPath()` and `assertVersion(...)`. `@Data` would also generate `equals`/`hashCode`/`toString` that walk lazy relations.
-- **DTOs stay Java `record`s** (`*Form`, `*View`, `*Node`, `*Search`). They don't need Lombok.
-- `BaseAction` keeps its own `log` field (`LoggerFactory.getLogger(getClass())`), so each action logs under its own class name.
+- **DTOs stay Java `record`s** (`*Form`, `*View`, `*Node`, `*Search`). They don't need Lombok. Input rules live on the `*Form` records as Bean Validation annotations.
 
-## The flow, using "create employee" as the example
+## The flow
+
+Reads (e.g. `GET /api/employees`): the controller calls `employeeService.search(...)`, which is `@Transactional(readOnly = true)`, and wraps the data with `ApiResponses.ok(data)`. Writes follow the same path, using "create employee" as the example:
 
 ```
 POST /api/employees
-  EmployeeController.create()          -> createEmployeeAction.run(form)          (no logic in the controller)
-    1. preCondition(form)              -> format checks + "exists?" / "duplicate?" via services
-                                          error? -> 400 {"success":false,"message":...}, nothing saved
-    2. execute(form)                   -> employeeService.create(form)              (@Transactional, commits here)
-                                          rule broken inside the tx? -> BusinessException -> rollback -> 409
-    3. postCondition(form, view)       -> notificationService.send(...)             (only after a successful commit)
+  EmployeeController.create(@Valid form)
+    0. Bean Validation on EmployeeForm   -> invalid? MethodArgumentNotValidException -> 400, nothing saved
+    1. employeeService.create(form)      (@Transactional)
+         - referenced records exist & ACTIVE?  no -> NotFoundException (404) / BusinessException (409)
+         - code / email unique?                no -> BusinessException -> rollback -> 409
+         - save, then publish EmployeeCreatedEvent
+       commit
+    2. EmployeeNotificationListener.onCreated   (@TransactionalEventListener AFTER_COMMIT)
+         -> notificationService.send(...)      (never runs if the transaction rolled back)
   <- 201 {"success":true,"message":"Employee E0100 created","data":{...}}
 ```
 
@@ -389,7 +396,7 @@ curl -s -X POST localhost:8080/api/employees -H 'Content-Type: application/json'
   "employeeCode":"E0100","fullName":"New Person","email":"new.person@example.com",
   "joinDate":"2025-01-01","designationId":6,"orgUnitId":8,"locationId":8,"supervisorId":7}' | jq
 
-# a failed preCondition returns 400 and nothing is saved
+# invalid input fails Bean Validation: 400 and nothing is saved
 curl -s -X POST localhost:8080/api/employees -H 'Content-Type: application/json' -d '{"employeeCode":"X"}' | jq
 
 # update: send back the version you loaded, or you'll get 409
@@ -403,6 +410,6 @@ curl -s -X PUT localhost:8080/api/employees/9 -H 'Content-Type: application/json
 | Status | When |
 |---|---|
 | 200 / 201 | Success |
-| 400 | `preCondition` failed (validation, not found, duplicate), or the JSON is malformed |
-| 404 | A record went missing during `execute` |
-| 409 | A business rule broke inside the service transaction (level rule, move into own subtree, reporting loop, stale `version`, still in use) |
+| 400 | Bean Validation failed (required field, length, format), or the JSON is malformed. `data` holds `{ field: message }` |
+| 404 | The record (or a record it references) does not exist |
+| 409 | A business rule broke inside the service transaction (duplicate code/email/rank, level rule, move into own subtree, reporting loop, stale `version`, still in use) |

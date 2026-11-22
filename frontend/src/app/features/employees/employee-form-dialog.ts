@@ -17,7 +17,7 @@ import { indent } from '../../shared/tree-utils';
 /**
  * Create / edit an employee. Only basic checks run here (required, email);
  * the real rules (duplicates, reporting loop, stale version) come back from the
- * backend's preCondition / service and are shown as messages.
+ * backend (Bean Validation / service rules) and are shown as messages.
  */
 @Component({
   selector: 'app-employee-form-dialog',

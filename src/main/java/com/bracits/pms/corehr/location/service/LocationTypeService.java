@@ -26,36 +26,28 @@ public class LocationTypeService {
         return typeRepo.findAllByOrderByLevelNoAscNameAsc().stream().map(LocationTypeView::from).toList();
     }
 
-    @Transactional(readOnly = true)
-    public boolean codeExists(String code, Long excludeId) {
+    private boolean codeExists(String code, Long excludeId) {
         return excludeId == null
                 ? typeRepo.existsByCodeIgnoreCase(code.trim())
                 : typeRepo.existsByCodeIgnoreCaseAndIdNot(code.trim(), excludeId);
     }
 
-    @Transactional(readOnly = true)
-    public boolean exists(Long id) {
-        return typeRepo.existsById(id);
+    @Transactional
+    public LocationTypeView create(LocationTypeForm f) {
+        checkUniqueCode(f.code(), null);
+        return LocationTypeView.from(typeRepo.save(new LocationType(f.code(), f.name(), f.levelNo())));
     }
 
-    /** Create when form.id is null, otherwise update. */
     @Transactional
-    public LocationTypeView save(LocationTypeForm f) {
-        if (codeExists(f.code(), f.id())) {
-            throw new BusinessException("Location type code already exists: " + f.code());
+    public LocationTypeView update(Long id, LocationTypeForm f) {
+        LocationType type = findEntity(id);
+        type.assertVersion(f.version());
+        checkUniqueCode(f.code(), id);
+        if (!Objects.equals(type.getLevelNo(), f.levelNo()) && locationRepo.existsByTypeId(id)) {
+            throw new BusinessException("Level cannot change while locations use this type");
         }
-        LocationType type;
-        if (f.id() == null) {
-            type = new LocationType(f.code(), f.name(), f.levelNo());
-        } else {
-            type = findEntity(f.id());
-            type.assertVersion(f.version());
-            if (!Objects.equals(type.getLevelNo(), f.levelNo()) && locationRepo.existsByTypeId(type.getId())) {
-                throw new BusinessException("Level cannot change while locations use this type");
-            }
-            type.change(f.code(), f.name(), f.levelNo(), f.status());
-        }
-        return LocationTypeView.from(typeRepo.save(type));
+        type.change(f.code(), f.name(), f.levelNo(), f.status());
+        return LocationTypeView.from(type);
     }
 
     @Transactional
@@ -65,6 +57,12 @@ public class LocationTypeService {
             throw new BusinessException("Location type is in use and cannot be deleted. Make it INACTIVE instead.");
         }
         typeRepo.delete(type);
+    }
+
+    private void checkUniqueCode(String code, Long excludeId) {
+        if (codeExists(code, excludeId)) {
+            throw new BusinessException("Location type code already exists: " + code);
+        }
     }
 
     /** For LocationService (same module). Public so the Spring proxy delegates it correctly. */

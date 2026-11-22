@@ -1,11 +1,10 @@
 package com.bracits.pms.corehr.organogram.api;
 
-import com.bracits.pms.corehr.organogram.action.DeleteGradeAction;
-import com.bracits.pms.corehr.organogram.action.ListGradesAction;
-import com.bracits.pms.corehr.organogram.action.SaveGradeAction;
-import com.bracits.pms.shared.action.Result;
+import com.bracits.pms.corehr.organogram.service.GradeService;
+import com.bracits.pms.shared.api.ApiResponse;
 import com.bracits.pms.shared.api.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,35 +18,33 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** Thin controller: Bean Validation on the body, then one transactional service call. */
 @Tag(name = "Grades")
 @RestController
 @RequestMapping("/api/grades")
 @RequiredArgsConstructor
 public class GradeController {
 
-    private final ListGradesAction listAction;
-    private final SaveGradeAction saveAction;
-    private final DeleteGradeAction deleteAction;
+    private final GradeService service;
 
     @GetMapping
-    public ResponseEntity<Result<List<GradeView>>> list() {
-        return ApiResponses.of(listAction.run(null));
+    public ResponseEntity<ApiResponse<List<GradeView>>> list() {
+        return ApiResponses.ok(service.list());
     }
 
     @PostMapping
-    public ResponseEntity<Result<GradeView>> create(@RequestBody GradeForm form) {
-        var f = form == null ? null : new GradeForm(null, form.code(), form.name(), form.rankNo(), form.status(), null);
-        return ApiResponses.created(saveAction.run(f));
+    public ResponseEntity<ApiResponse<GradeView>> create(@Valid @RequestBody GradeForm form) {
+        return ApiResponses.created("Grade saved", service.create(form));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Result<GradeView>> update(@PathVariable Long id, @RequestBody GradeForm form) {
-        var f = form == null ? null : new GradeForm(id, form.code(), form.name(), form.rankNo(), form.status(), form.version());
-        return ApiResponses.of(saveAction.run(f));
+    public ResponseEntity<ApiResponse<GradeView>> update(@PathVariable Long id, @Valid @RequestBody GradeForm form) {
+        return ApiResponses.ok("Grade saved", service.update(id, form));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Result<Long>> delete(@PathVariable Long id) {
-        return ApiResponses.of(deleteAction.run(id));
+    public ResponseEntity<ApiResponse<Long>> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ApiResponses.ok("Grade deleted", id);
     }
 }

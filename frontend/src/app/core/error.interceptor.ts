@@ -4,7 +4,7 @@ import { catchError, throwError } from 'rxjs';
 import { NotifyService } from './notify.service';
 
 /**
- * Failed preCondition (400), business rule in the service (409), not found (404):
+ * Invalid input (400), business rule in the service (409), not found (404):
  * the backend always sends { success:false, message }, so show that message.
  */
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
