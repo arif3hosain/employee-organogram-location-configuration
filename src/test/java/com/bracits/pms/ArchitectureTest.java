@@ -1,6 +1,6 @@
 package com.bracits.pms;
 
-import com.bracits.pms.shared.notification.NotificationService;
+import com.bracits.pms.notification.NotificationService;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -26,13 +26,13 @@ class ArchitectureTest {
     @ArchTest
     static final ArchRule controllersDoNotUseRepositories = noClasses()
             .that().areAnnotatedWith(RestController.class)
-            .should().dependOnClassesThat().resideInAPackage("..infrastructure..");
+            .should().dependOnClassesThat().resideInAPackage("..repository..");
 
     /** Repositories are used only by services. */
     @ArchTest
     static final ArchRule repositoriesOnlyFromServices = classes()
-            .that().resideInAPackage("..infrastructure..")
-            .should().onlyHaveDependentClassesThat().resideInAnyPackage("..service..", "..infrastructure..");
+            .that().resideInAPackage("..repository..")
+            .should().onlyHaveDependentClassesThat().resideInAnyPackage("..service..", "..repository..");
 
     /** Transaction boundaries live in the service layer only (class level)... */
     @ArchTest

@@ -15,12 +15,13 @@
     <artifactId>pms-poc</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>pms-poc</name>
-    <description>PMS POC: Controller -> Action -> Service flow, type-wise location, organogram, employee CRUD</description>
+    <description>PMS POC: Controller -> Service -> Repository flow, type-wise location, organogram, employee CRUD</description>
 
     <properties>
         <java.version>25</java.version>
         <springdoc.version>2.8.13</springdoc.version>
         <archunit.version>1.4.1</archunit.version>
+        <jacoco.version>0.8.14</jacoco.version>
     </properties>
 
     <dependencies>
@@ -118,6 +119,32 @@
                         </exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <!-- Code coverage: `mvn verify` runs the tests and writes target/site/jacoco/index.html -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>com/bracits/pms/PmsPocApplication.class</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

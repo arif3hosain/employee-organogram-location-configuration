@@ -16,14 +16,18 @@ There is no security in this POC. Progress and open questions are tracked in [PO
 |---|---|
 | Language / runtime | Java 25 |
 | Backend framework | Spring Boot 3.5.6 (Web, Data JPA / Hibernate, Validation, Actuator) |
+| Validation | Jakarta Bean Validation (Hibernate Validator), with validation groups (`OnUpdate`) |
+| Events | Spring application events + `@TransactionalEventListener` (after-commit side effects) |
 | Database | PostgreSQL (dev/runtime), H2 in PostgreSQL mode (tests) |
 | Schema migrations | Flyway (`V1`–`V4` under `src/main/resources/db/migration`) |
-| API docs | springdoc-openapi 2.8 (Swagger UI) |
+| API docs | springdoc-openapi 2.8.13 (Swagger UI) |
 | Boilerplate | Lombok 1.18 (getters, constructors, loggers; version managed by Spring Boot) |
 | Build | Maven 3.9+ |
-| Tests | JUnit 5, Spring Boot Test, ArchUnit 1.4 (layer rules) |
+| Tests | JUnit 5, Spring Boot Test, ArchUnit 1.4 (layer rules), JaCoCo 0.8.14 (code coverage) |
 | Frontend | Angular 22 (standalone components, signals, lazy routes), Angular Material / CDK 22, RxJS 7.8, TypeScript 6 |
+| Fonts / icons | Roboto (`@fontsource/roboto`), Material Symbols Outlined (`material-symbols`), both self-hosted from npm |
 | Frontend tooling | Angular CLI, Node 20.19+ or 22+, npm, Prettier |
+| Scripts | Bash + `psql` (`scripts/reset-db.sh`) |
 
 ---
 
@@ -91,7 +95,7 @@ Click any image to see it at full size.
 ### Prerequisites
 
 - JDK 25 and Maven 3.9+
-- PostgreSQL on `localhost:5433` with a database named `pmspoc` (user `postgres`, password `postgres`)
+- PostgreSQL on `localhost:5433` with a database named `pmspoc` (user `postgres`, password `postgres`), plus the `psql` client for the setup and reset commands
 - Node 20.19+ or 22+ and npm (for the UI)
 - In your IDE, the Lombok plugin with annotation processing turned on. IntelliJ IDEA bundles the plugin; Eclipse and VS Code need the Lombok extension. Maven builds need nothing extra.
 
@@ -134,6 +138,18 @@ Tests use in-memory H2 in PostgreSQL mode, so they don't need a database:
 ```bash
 mvn test
 ```
+
+#### Code coverage (JaCoCo)
+
+```bash
+mvn verify                   # runs the tests, then writes the coverage report
+xdg-open target/site/jacoco/index.html   # macOS: open, Windows: start
+```
+
+The report is in `target/site/jacoco/` (`index.html` for browsing, `jacoco.xml` / `jacoco.csv` for CI tools such as SonarQube). `PmsPocApplication` and Lombok-generated code (marked `@Generated` via `lombok.config`) are left out.
+
+<a href="screenshots/test_coverage.png"><img src="screenshots/test_coverage.png" width="800" alt="JaCoCo coverage report"></a>
+<br><sub>JaCoCo report by package: 60% instruction coverage and 44% branch coverage overall.</sub>
 
 ---
 
@@ -324,13 +340,15 @@ curl -s "localhost:8080/api/org-units?nature=NON_FUNCTIONAL" | jq
 
 ```
 com.bracits.pms
- ├── shared/                  ApiResponse, BaseEntity, HierarchyPath, error handling, NotificationService (logs only)
- └── corehr/
-      ├── location/           LocationType + Location tree
-      ├── organogram/         OrgUnitType, OrgUnit tree, Grade, Designation, OrgUnitPost (sanctioned posts)
-      └── employee/           Employee
-          each one: api/ (controller + DTOs) · service/ · domain/ · infrastructure/ (repositories)
-          employee also has event/ (domain events + the after-commit mail listener)
+ ├── controller/      REST controllers
+ ├── dto/             ApiResponses (response builder), OnUpdate (validation group)
+ │    └── record/     request forms, response views, search params, tree nodes, ApiResponse, PageView
+ ├── service/         business logic + transaction boundaries
+ ├── repository/      Spring Data JPA repositories
+ ├── domain/          JPA entities, enums, BaseEntity, HierarchyPath
+ ├── event/           domain events + the after-commit mail listener
+ ├── exception/       BusinessException, NotFoundException, GlobalExceptionHandler
+ └── notification/    NotificationService (logs only)
 
 frontend/src/app
  ├── core/        api.service, models, error.interceptor, notify.service, lookups
