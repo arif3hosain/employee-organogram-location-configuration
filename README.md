@@ -151,6 +151,13 @@ The report is in `target/site/jacoco/` (`index.html` for browsing, `jacoco.xml` 
 <a href="screenshots/test_coverage.png"><img src="screenshots/test_coverage.png" width="800" alt="JaCoCo coverage report"></a>
 <br><sub>JaCoCo report by package: 60% instruction coverage and 44% branch coverage overall.</sub>
 
+#### Manual API testing (Swagger UI)
+
+With the backend running, open http://localhost:8080/swagger-ui.html to try every endpoint from the browser. Endpoints are grouped by resource; expand one, click **Try it out**, fill in the parameters or body and click **Execute**. The raw OpenAPI spec is at http://localhost:8080/v3/api-docs.
+
+<a href="screenshots/swagger.png"><img src="screenshots/swagger.png" width="800" alt="Swagger UI"></a>
+<br><sub>Swagger UI (springdoc-openapi): endpoints grouped by resource, e.g. the organogram's org units and sanctioned posts.</sub>
+
 ---
 
 ## Location configuration
