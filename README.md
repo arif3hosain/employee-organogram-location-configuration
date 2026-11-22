@@ -146,7 +146,7 @@ mvn verify                   # runs the tests, then writes the coverage report
 xdg-open target/site/jacoco/index.html   # macOS: open, Windows: start
 ```
 
-The report is in `target/site/jacoco/` (`index.html` for browsing, `jacoco.xml` / `jacoco.csv` for CI tools such as SonarQube). `PmsPocApplication` and Lombok-generated code (marked `@Generated` via `lombok.config`) are left out.
+The report is in `target/site/jacoco/` (`index.html` for browsing, `jacoco.xml` / `jacoco.csv` for CI tools such as SonarQube). `App` and Lombok-generated code (marked `@Generated` via `lombok.config`) are left out.
 
 <a href="screenshots/test_coverage.png"><img src="screenshots/test_coverage.png" width="800" alt="JaCoCo coverage report"></a>
 <br><sub>JaCoCo report by package: 60% instruction coverage and 44% branch coverage overall.</sub>
