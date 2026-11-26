@@ -32,17 +32,20 @@ public class LocationController {
 
     private final LocationService service;
 
-    /** e.g. /api/locations?typeId=6 (all districts) or ?parentId=12 (the districts of Dhaka division). */
+    /** e.g. /api/locations?typeId=6 (all districts), ?parentId=12 (the districts of Dhaka division) or ?countryId=1. */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<LocationView>>> search(@RequestParam(required = false) Long typeId,
+    public ResponseEntity<ApiResponse<List<LocationView>>> search(@RequestParam(required = false) Long countryId,
+                                                                  @RequestParam(required = false) Long typeId,
                                                                   @RequestParam(required = false) Long parentId,
                                                                   @RequestParam(required = false) String q) {
-        return ApiResponses.ok(service.search(new LocationSearch(typeId, parentId, q)));
+        return ApiResponses.ok(service.search(new LocationSearch(countryId, typeId, parentId, q)));
     }
 
+    /** Roots are level-1 locations (e.g. divisions) of every country, or ?countryId=1 for one; ?rootId= for a subtree. */
     @GetMapping("/tree")
-    public ResponseEntity<ApiResponse<List<LocationNode>>> tree(@RequestParam(required = false) Long rootId) {
-        return ApiResponses.ok(service.tree(rootId));
+    public ResponseEntity<ApiResponse<List<LocationNode>>> tree(@RequestParam(required = false) Long rootId,
+                                                                @RequestParam(required = false) Long countryId) {
+        return ApiResponses.ok(service.tree(rootId, countryId));
     }
 
     @GetMapping("/{id}")

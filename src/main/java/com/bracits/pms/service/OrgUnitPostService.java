@@ -7,6 +7,7 @@ import com.bracits.pms.dto.record.OrgUnitPostForm;
 import com.bracits.pms.dto.record.OrgUnitPostView;
 import com.bracits.pms.exception.NotFoundException;
 import com.bracits.pms.repository.OrgUnitPostRepository;
+import com.bracits.pms.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -55,13 +56,15 @@ public class OrgUnitPostService {
 
     @Transactional
     public void delete(Long id) {
-        OrgUnitPost post = repo.findById(id).orElseThrow(() -> new NotFoundException("Org unit post", id));
+        // child table: found only through its org unit's tenant, so another tenant's post is a 404
+        OrgUnitPost post = repo.findInTenant(id, TenantContext.require())
+                .orElseThrow(() -> new NotFoundException("Org unit post", id));
         repo.delete(post);
     }
 
     private Map<Long, Integer> filledByDesignation(Long orgUnitId) {
         Map<Long, Integer> filled = new HashMap<>();
-        for (Object[] row : repo.countActiveEmployeesByDesignation(orgUnitId)) {
+        for (Object[] row : repo.countActiveEmployeesByDesignation(orgUnitId, TenantContext.require())) {
             filled.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
         }
         return filled;

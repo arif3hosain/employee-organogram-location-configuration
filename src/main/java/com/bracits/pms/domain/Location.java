@@ -21,9 +21,9 @@ import lombok.NoArgsConstructor;
 @Table(name = "location")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Location extends BaseEntity {
+public class Location extends TenantScopedEntity {
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(nullable = false, length = 30)
     private String code;
 
     @Column(nullable = false, length = 150)
@@ -54,6 +54,11 @@ public class Location extends BaseEntity {
         this.type = type;
         this.parent = parent;
         this.status = status == null ? RecordStatus.ACTIVE : status;
+    }
+
+    /** A location's country is its type's country (not stored on the location). */
+    public Country getCountry() {
+        return type.getCountry();
     }
 
     /** Call once the id is assigned (after the first save), and again after a move. */

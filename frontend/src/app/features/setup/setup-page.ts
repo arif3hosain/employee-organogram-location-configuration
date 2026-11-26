@@ -4,10 +4,11 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Observable, map, of } from 'rxjs';
+import { Observable, forkJoin, map, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
-import { TypeView } from '../../core/models';
+import { CountryView, TypeView } from '../../core/models';
 import { confirm } from '../../shared/confirm-dialog';
+import { CountryDialog } from './country-dialog';
 import { SetupItem, SetupItemDialog, SetupItemValue, SetupOption } from './setup-item-dialog';
 
 type SetupKey = 'locationTypes' | 'orgUnitTypes' | 'grades' | 'designations';
@@ -21,6 +22,8 @@ interface SetupKind {
   load: () => Observable<SetupItem[]>;
   /** Pick-list for `value` (designation → grade); null = typed number. */
   options: () => Observable<SetupOption[] | null>;
+  /** Location types only: each belongs to a country chosen in the dialog. */
+  group?: { label: string; options: () => Observable<SetupOption[]> };
   create: (v: SetupItemValue) => Observable<unknown>;
   update: (id: number, v: SetupItemValue) => Observable<unknown>;
   remove: (id: number) => Observable<unknown>;
@@ -32,6 +35,36 @@ interface SetupKind {
   template: `
     <div class="page-header"><h1>Setup</h1></div>
     <mat-tab-group animationDuration="0ms">
+      <mat-tab label="Countries">
+        <div class="tab">
+          <div class="row">
+            <span class="muted">A country is its own record, not a location. Each country defines its own location levels
+              (Location types tab), e.g. Bangladesh: Division › District › Upazila.</span>
+            <span class="spacer"></span>
+            <button mat-flat-button (click)="openCountry(null)"><mat-icon>add</mat-icon> New country</button>
+          </div>
+          <table class="setup">
+            <thead><tr><th>ISO</th><th>Name</th><th>Currency</th><th>Phone</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              @for (c of countries(); track c.id) {
+                <tr>
+                  <td><strong>{{ c.iso2 }}</strong> <span class="muted">{{ c.iso3 }}</span></td>
+                  <td>{{ c.name }}</td>
+                  <td>{{ c.currencyCode }}</td>
+                  <td>{{ c.phoneCode }}</td>
+                  <td><span class="badge" [class]="c.status">{{ c.status }}</span></td>
+                  <td class="actions">
+                    <button mat-icon-button matTooltip="Edit" (click)="openCountry(c)"><mat-icon>edit</mat-icon></button>
+                    <button mat-icon-button matTooltip="Delete" (click)="removeCountry(c)"><mat-icon>delete</mat-icon></button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="6" class="muted">No countries yet.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </mat-tab>
       @for (k of kinds; track k.key) {
         <mat-tab [label]="k.title + 's'">
           <div class="tab">
@@ -41,10 +74,11 @@ interface SetupKind {
               <button mat-flat-button (click)="open(k, null)"><mat-icon>add</mat-icon> New {{ k.title.toLowerCase() }}</button>
             </div>
             <table class="setup">
-              <thead><tr><th>{{ k.valueLabel }}</th><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+              <thead><tr>@if (k.group) { <th>{{ k.group.label }}</th> }<th>{{ k.valueLabel }}</th><th>Code</th><th>Name</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 @for (i of items()[k.key]; track i.id) {
                   <tr>
+                    @if (k.group) { <td>{{ i.groupDisplay }}</td> }
                     <td class="val">{{ i.display }}</td>
                     <td><strong>{{ i.code }}</strong></td>
                     <td>{{ i.name }}</td>
@@ -55,7 +89,7 @@ interface SetupKind {
                     </td>
                   </tr>
                 } @empty {
-                  <tr><td colspan="5" class="muted">Nothing defined yet.</td></tr>
+                  <tr><td [attr.colspan]="k.group ? 6 : 5" class="muted">Nothing defined yet.</td></tr>
                 }
               </tbody>
             </table>
@@ -77,6 +111,7 @@ export class SetupPage {
   private readonly api = inject(ApiService);
   private readonly dialog = inject(MatDialog);
 
+  protected readonly countries = signal<CountryView[]>([]);
   protected readonly items = signal<Record<SetupKey, SetupItem[]>>({
     locationTypes: [], orgUnitTypes: [], grades: [], designations: [],
   });
@@ -84,9 +119,17 @@ export class SetupPage {
   protected readonly kinds: SetupKind[] = [
     {
       key: 'locationTypes', title: 'Location type', valueLabel: 'Level',
-      valueHint: 'Level 1 = top (e.g. Country). A location may only sit under a higher-level location.',
-      load: () => this.typeItems(this.api.locationTypes()),
+      valueHint: 'Per country. Level 1 = top (e.g. Division in Bangladesh, State in India). A location may only sit under a higher-level location of the same country.',
+      load: () => this.api.locationTypes().pipe(map(ts => ts.map(t => ({
+        ...t, value: t.levelNo, display: String(t.levelNo), group: t.countryId ?? null, groupDisplay: t.countryName ?? null,
+      })))),
       options: () => of(null),
+      group: {
+        label: 'Country',
+        options: () => this.api.countries().pipe(map(cs => cs.map(c => ({
+          id: c.id, label: `${c.name} (${c.iso2})`, disabled: c.status === 'INACTIVE',
+        })))),
+      },
       create: v => this.api.createLocationType(this.toType(v)),
       update: (id, v) => this.api.updateLocationType(id, this.toType(v)),
       remove: id => this.api.deleteLocationType(id),
@@ -125,7 +168,25 @@ export class SetupPage {
   ];
 
   constructor() {
+    this.reloadCountries();
     this.kinds.forEach(k => this.reload(k));
+  }
+
+  private reloadCountries(): void {
+    this.api.countries().subscribe(cs => this.countries.set(cs));
+  }
+
+  protected openCountry(c: CountryView | null): void {
+    this.dialog.open(CountryDialog, { width: '600px', data: c }).afterClosed().subscribe(saved => {
+      if (!saved) return;
+      this.reloadCountries();
+      this.reload(this.kinds[0]);       // country names show on location types
+    });
+  }
+
+  protected removeCountry(c: CountryView): void {
+    confirm(this.dialog, { title: 'Delete country', message: `Delete ${c.name}? This fails if it has location types.` })
+      .subscribe(ok => { if (ok) this.api.deleteCountry(c.id).subscribe(() => this.reloadCountries()); });
   }
 
   private reload(k: SetupKind): void {
@@ -133,11 +194,12 @@ export class SetupPage {
   }
 
   protected open(k: SetupKind, item: SetupItem | null): void {
-    k.options().subscribe(options => {
+    forkJoin([k.options(), k.group ? k.group.options() : of(null)]).subscribe(([options, groupOptions]) => {
       this.dialog.open(SetupItemDialog, {
         width: '600px',
         data: {
           title: k.title.toLowerCase(), valueLabel: k.valueLabel, valueHint: k.valueHint, options, item,
+          groupLabel: k.group?.label, groupOptions,
           save: (v: SetupItemValue) => (item ? k.update(item.id, v) : k.create(v)),
         },
       }).afterClosed().subscribe(saved => {
@@ -158,7 +220,8 @@ export class SetupPage {
   }
 
   private toType(v: SetupItemValue) {
-    return { code: v.code, name: v.name, levelNo: v.value, status: v.status, version: v.version };
+    const country = v.group === null ? {} : { countryId: v.group };   // location types only
+    return { ...country, code: v.code, name: v.name, levelNo: v.value, status: v.status, version: v.version };
   }
 
   private toGrade(v: SetupItemValue) {

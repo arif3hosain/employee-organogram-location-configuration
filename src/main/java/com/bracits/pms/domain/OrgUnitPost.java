@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
  * Sanctioned (approved) posts: how many people of a designation an org unit may have.
  * Organogram = org unit tree + sanctioned posts per unit. Vacancy = sanctioned - active employees.
  */
+@TenantChildOf(OrgUnit.class)
 @Entity
 @Table(name = "org_unit_post",
         uniqueConstraints = @UniqueConstraint(columnNames = {"org_unit_id", "designation_id"}))

@@ -21,9 +21,9 @@ import lombok.NoArgsConstructor;
 @Table(name = "org_unit")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OrgUnit extends BaseEntity {
+public class OrgUnit extends TenantScopedEntity {
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(nullable = false, length = 30)
     private String code;
 
     @Column(nullable = false, length = 150)

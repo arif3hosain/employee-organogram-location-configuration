@@ -19,7 +19,7 @@ There is no security in this POC. Progress and open questions are tracked in [PO
 | Validation | Jakarta Bean Validation (Hibernate Validator), with validation groups (`OnUpdate`) |
 | Events | Spring application events + `@TransactionalEventListener` (after-commit side effects) |
 | Database | PostgreSQL (dev/runtime), H2 in PostgreSQL mode (tests) |
-| Schema migrations | Flyway (`V1`–`V4` under `src/main/resources/db/migration`) |
+| Schema migrations | Flyway (`V1`–`V5` under `src/main/resources/db/migration`) |
 | API docs | springdoc-openapi 2.8.13 (Swagger UI) |
 | Boilerplate | Lombok 1.18 (getters, constructors, loggers; version managed by Spring Boot) |
 | Build | Maven 3.9+ |
@@ -33,14 +33,14 @@ There is no security in this POC. Progress and open questions are tracked in [PO
 
 ## Features
 
-- **Type-wise locations.** One configurable location tree replaces separate Division / District / Upazila tables. Location types and their levels are data, not code. All of Bangladesh is preloaded: 8 divisions, 64 districts and 495 upazilas, coded with official BBS geocodes.
+- **Type-wise locations.** One configurable location tree replaces separate Division / District / Upazila tables. Location types and their levels are data, not code. Country is its own table, and each country defines its own levels (Bangladesh: Division › District › Upazila; India could be State › District). All of Bangladesh is preloaded: 8 divisions, 64 districts and 495 upazilas, coded with official BBS geocodes.
 - **Organogram.** A configurable org unit tree (Organization → Function → Department → Unit → Team), with a FUNCTIONAL / NON_FUNCTIONAL nature on each unit. Child units inherit the nature unless they set one.
 - **Grades and designations.** Grades are ranked (1 = most senior), and each designation belongs to one grade.
 - **Sanctioned posts.** Each org unit has a sanctioned head count per designation, shown as sanctioned / filled / vacancy.
 - **Employee CRUD.** Paged search with filters for org unit, location, designation and status. The org unit and location filters include the whole subtree. Each employee has a supervisor, and reporting loops are rejected.
 - **Hierarchy rules enforced on the server.** Level rules, no move into your own subtree, no deleting a node that still has children or is still in use, and optimistic locking with `version`.
 - **Consistent API responses.** Every response is `{ success, message, data }`, with clear HTTP status rules (see below).
-- **Angular UI.** Screens for employees, an org chart and tree view, a location tree and setup (types, grades, designations).
+- **Angular UI.** Screens for employees, an org chart and tree view, a location tree and setup (countries, types, grades, designations).
 - **Architecture guard.** `ArchitectureTest` (ArchUnit) fails the build when a layer rule is broken.
 
 ---
@@ -66,7 +66,7 @@ Click any image to see it at full size.
     <td width="50%" valign="top">
       <a href="screenshots/location_config.png"><img src="screenshots/location_config.png" width="400" alt="Location tree"></a>
       <br><b>Location tree</b>
-      <br><sub>All of Bangladesh preloaded as one tree (Country → Division → District → Upazila) with official BBS geocodes.</sub>
+      <br><sub>All of Bangladesh preloaded (Division → District → Upazila) with official BBS geocodes. With several countries the tree is grouped by country.</sub>
     </td>
     <td width="50%" valign="top">
       <a href="screenshots/location_type.png"><img src="screenshots/location_type.png" width="400" alt="Location types setup"></a>
@@ -108,7 +108,7 @@ psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE pmspoc"
 mvn spring-boot:run          # http://localhost:8080
 ```
 
-On startup, Flyway creates the tables (`V1__corehr_schema.sql`) and loads sample data (`V2__corehr_seed_data.sql`). It then adds the Grade entity (`V3__grade_entity.sql`) and the Bangladesh divisions, districts and upazilas (`V4__bangladesh_admin_locations.sql`).
+On startup, Flyway creates the tables (`V1__corehr_schema.sql`) and loads sample data (`V2__corehr_seed_data.sql`). It then adds the Grade entity (`V3__grade_entity.sql`) and the Bangladesh divisions, districts and upazilas (`V4__bangladesh_admin_locations.sql`). `V5__country.sql` moves the country into its own table and makes location types per country.
 
 To use other connection details, set `DB_URL`, `DB_USERNAME` and `DB_PASSWORD`.
 
@@ -162,18 +162,27 @@ With the backend running, open http://localhost:8080/swagger-ui.html to try ever
 
 ## Location configuration
 
-Locations are not hard-coded tables. There are two tables:
+Locations are not hard-coded tables. There are three tables:
 
-- **`location_type`** holds the levels (`code`, `name`, `level_no`; 1 = top).
-- **`location`** holds the actual places (`code`, `name`, `location_type_id`, `parent_id`), stored as a tree with a materialized `path` such as `/1/12/85/`.
+- **`country`** holds the countries (`iso2`, `iso3`, `name`, `currency_code`, `phone_code`). A country is reference data, not a node of the location tree (the same approach as Odoo's `res.country` and SAP's country table).
+- **`location_type`** holds each country's levels (`country_id`, `code`, `name`, `level_no`; 1 = top). The code is unique per country, so Bangladesh and India can both have a `DISTRICT`.
+- **`location`** holds the actual places (`code`, `name`, `location_type_id`, `parent_id`), stored as a tree with a materialized `path` such as `/12/35/7/`. It has **no** country column: its country is its type's country.
 
 ```mermaid
 erDiagram
+    COUNTRY ||--o{ LOCATION_TYPE : "defines levels"
     LOCATION_TYPE ||--o{ LOCATION : "classifies"
     LOCATION ||--o{ LOCATION : "parent of"
     LOCATION ||--o{ ORG_UNIT : "hosts"
     LOCATION ||--o{ EMPLOYEE : "posted at"
+    COUNTRY {
+        string iso2
+        string iso3
+        string name
+        string currency_code
+    }
     LOCATION_TYPE {
+        bigint country_id
         string code
         string name
         int level_no
@@ -189,64 +198,74 @@ erDiagram
 
 ### Level rules
 
-- A level 1 type (for example, COUNTRY) is a root and has no parent.
+- A level 1 type (for example, DIVISION in Bangladesh) is a root and has no parent.
 - Any other location needs a parent whose type has a **smaller** `level_no`.
+- The parent must be in the **same country** (its type's country).
 - Levels may be **skipped**. For example, an office can sit directly under a district.
 - A location can't be moved under itself or its own children, and a location with children can't be deleted.
+- A location type's country or level can't change while locations use it, and a country with location types can't be deleted.
 
-### Example: the configured types
+### Example: the configured types (Bangladesh)
 
 | level_no | code | name |
 |---|---|---|
-| 1 | `COUNTRY` | Country |
-| 2 | `DIVISION` | Division |
-| 3 | `DISTRICT` | District |
-| 4 | `UPAZILA` | Upazila |
-| 5 | `BRANCH` | Branch / Office |
+| 1 | `DIVISION` | Division |
+| 2 | `DISTRICT` | District |
+| 3 | `UPAZILA` | Upazila |
+| 4 | `BRANCH` | Branch / Office |
+
+Another country gets its own list, for example India: 1 `STATE`, 2 `DISTRICT`, 3 `TEHSIL`, 4 `BRANCH`.
 
 ### Example: part of the loaded tree
 
 ```mermaid
 flowchart TD
-    BD["BD · Bangladesh<br/><i>Country (1)</i>"]
-    BD --> DHKD["BD30 · Dhaka<br/><i>Division (2)</i>"]
-    BD --> CTGD["BD20 · Chattogram<br/><i>Division (2)</i>"]
-    BD --> OTH["… 6 more divisions"]
+    BD(["Bangladesh (country table)"])
+    BD -.-> DHKD["BD30 · Dhaka<br/><i>Division (1)</i>"]
+    BD -.-> CTGD["BD20 · Chattogram<br/><i>Division (1)</i>"]
+    BD -.-> OTH["… 6 more divisions"]
 
-    DHKD --> DHK["BD3026 · Dhaka<br/><i>District (3)</i>"]
-    CTGD --> CTG["BD2015 · Chattogram<br/><i>District (3)</i>"]
+    DHKD --> DHK["BD3026 · Dhaka<br/><i>District (2)</i>"]
+    CTGD --> CTG["BD2015 · Chattogram<br/><i>District (2)</i>"]
 
-    DHK --> SAV["BD30260072 · Savar<br/><i>Upazila (4)</i>"]
-    CTG --> ANW["BD20150004 · Anwara<br/><i>Upazila (4)</i>"]
+    DHK --> SAV["BD30260072 · Savar<br/><i>Upazila (3)</i>"]
+    CTG --> ANW["BD20150004 · Anwara<br/><i>Upazila (3)</i>"]
 
-    DHK --> HO["B-HO · Head Office<br/><i>Branch (5)</i>"]
-    DHK --> MIR["B-MIR10 · Mirpur-10 Branch<br/><i>Branch (5)</i>"]
-    CTG --> AGR["B-AGR · Agrabad Branch<br/><i>Branch (5)</i>"]
+    DHK --> HO["B-HO · Head Office<br/><i>Branch (4)</i>"]
+    DHK --> MIR["B-MIR10 · Mirpur-10 Branch<br/><i>Branch (4)</i>"]
+    CTG --> AGR["B-AGR · Agrabad Branch<br/><i>Branch (4)</i>"]
 
     classDef office fill:#e3f2fd,stroke:#1565c0;
     class HO,MIR,AGR office;
 ```
 
-The branches sit directly under their district, skipping the Upazila level, because Dhaka and Chattogram city areas are not upazilas.
+The dotted lines are not `parent_id` links: the divisions are roots, and they belong to Bangladesh through their type. The branches sit directly under their district, skipping the Upazila level, because Dhaka and Chattogram city areas are not upazilas.
 
-### Example: add a new level and a location
+### Example: add a country, a level and a location
 
 ```bash
-# 1. add a "Union" type between Upazila (4) and Branch:
-#    first give BRANCH level 6 (PUT /api/location-types/{id}), then create UNION at level 5
+# 1. add India and its first level
+curl -s -X POST localhost:8080/api/countries -H 'Content-Type: application/json' \
+  -d '{"iso2":"IN","iso3":"IND","name":"India","currencyCode":"INR","phoneCode":"+91"}' | jq
 curl -s -X POST localhost:8080/api/location-types -H 'Content-Type: application/json' \
-  -d '{"code":"UNION","name":"Union","levelNo":5}' | jq
+  -d '{"countryId":<India id>,"code":"STATE","name":"State","levelNo":1}' | jq
 
-# 2. add a branch under the Dhaka district (a level is skipped, which is allowed)
+# 2. add a "Union" type in Bangladesh between Upazila (3) and Branch:
+#    first give BRANCH level 5 (PUT /api/location-types/{id}), then create UNION at level 4
+curl -s -X POST localhost:8080/api/location-types -H 'Content-Type: application/json' \
+  -d '{"countryId":<Bangladesh id>,"code":"UNION","name":"Union","levelNo":4}' | jq
+
+# 3. add a branch under the Dhaka district (a level is skipped, which is allowed)
 curl -s -X POST localhost:8080/api/locations -H 'Content-Type: application/json' \
   -d '{"code":"B-DHN","name":"Dhanmondi Branch","typeId":<BRANCH id>,"parentId":<BD3026 id>}' | jq
 
-# 3. read the tree, or just one subtree
+# 4. read the tree, one country, or just one subtree
 curl -s localhost:8080/api/locations/tree | jq
+curl -s "localhost:8080/api/locations/tree?countryId=<Bangladesh id>" | jq
 curl -s "localhost:8080/api/locations/tree?rootId=<BD3026 id>" | jq
 ```
 
-> Look up real ids with `GET /api/location-types` and `GET /api/locations?q=Dhaka`, or check the exact field names in Swagger UI.
+> Look up real ids with `GET /api/countries`, `GET /api/location-types?countryId=…` and `GET /api/locations?q=Dhaka`, or check the exact field names in Swagger UI.
 
 ---
 
@@ -342,6 +361,27 @@ curl -s "localhost:8080/api/org-units?nature=NON_FUNCTIONAL" | jq
 ```
 
 ---
+
+## Multi-tenancy
+
+One PostgreSQL database and schema serves every customer (tenant). **Only parent tables carry `tenant_id`**; child tables inherit the tenant of their parent row, and shared reference data has no tenant at all (migration `V6__multi_tenancy.sql`).
+
+| Kind | Tables | How it's isolated |
+|---|---|---|
+| Parent (`TenantScopedEntity`) | `location_type`, `location`, `org_unit_type`, `org_unit`, `grade`, `designation`, `employee` | `tenant_id` column. Hibernate `@TenantId` fills it on insert and adds `tenant_id = ?` to every query. Codes are unique per tenant. FKs between parents are `(tenant_id, x_id)`, so the DB refuses cross-tenant links. |
+| Child (`@TenantChildOf`) | `org_unit_post` → `org_unit` | No tenant column. Read only through the parent; the repository has no `findById`/`findAll`. |
+| Shared (`@SharedAcrossTenants`) | `country`, `tenant` | Same rows for every tenant. |
+
+**Choosing the kind for a new table:** if it's listed, searched or referenced on its own, it's a parent. If it only exists inside one parent row (lines, details, history of that row), it's a child. A child can become a parent later by adding the column. `TenancyRulesTest` fails the build if an entity doesn't declare one of the three.
+
+**Which tenant?** Every `/api/**` call sends `X-Tenant-Id: <id>`. Without it the POC uses tenant 1 (`pms.tenancy.default-tenant-id`), so the UI works unchanged. A non-numeric id gives 400; an unknown or inactive tenant gives 403. In the product the tenant will come from the login token, not a header.
+
+```bash
+curl -H "X-Tenant-Id: 1" localhost:8080/api/employees   # BRAC: 8 employees
+curl -H "X-Tenant-Id: 2" localhost:8080/api/employees   # another tenant: none of BRAC's data
+```
+
+Native SQL is **not** filtered by Hibernate: write `tenant_id = :tenantId` yourself (see `OrgUnitPostRepository`). Jobs set the tenant with `TenantContext.run(tenantId, () -> ...)`; with no tenant set, queries return nothing and inserts fail.
 
 ## Code layout
 

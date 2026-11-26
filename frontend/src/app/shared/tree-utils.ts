@@ -54,3 +54,29 @@ export function ancestorIds<T extends TreeNodeLike<T>>(nodes: T[], id: number, t
 export function indent(depth: number): string {
   return '   '.repeat(depth) + (depth ? '└ ' : '');
 }
+
+/** Location-like node: the fields groupByCountry needs. */
+interface CountryNodeLike<T> extends TreeNodeLike<T> {
+  countryId: number;
+  countryCode: string;
+  countryName: string;
+}
+
+/**
+ * Locations have no "country" level any more (V5: country is its own table, and each country
+ * defines its own location types). When the tree spans several countries, put each country's
+ * roots under a heading node with id = -countryId; with one country the tree is returned as is.
+ * Heading nodes are not locations: callers check `isCountryHeading(id)` before using the id.
+ */
+export function groupByCountry<T extends CountryNodeLike<T>>(roots: T[], heading: (first: T, children: T[]) => T): T[] {
+  const byCountry = new Map<number, T[]>();
+  roots.forEach(r => byCountry.set(r.countryId, [...(byCountry.get(r.countryId) ?? []), r]));
+  if (byCountry.size <= 1) return roots;
+  return [...byCountry.values()]
+    .map(children => heading(children[0], children))
+    .sort((a, b) => a.countryName.localeCompare(b.countryName));
+}
+
+export function isCountryHeading(id: number | null | undefined): boolean {
+  return id !== null && id !== undefined && id < 0;
+}

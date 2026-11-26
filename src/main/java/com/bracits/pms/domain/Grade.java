@@ -17,15 +17,15 @@ import lombok.NoArgsConstructor;
 @Table(name = "grade")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Grade extends BaseEntity {
+public class Grade extends TenantScopedEntity {
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(nullable = false, length = 30)
     private String code;
 
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(name = "rank_no", nullable = false, unique = true)
+    @Column(name = "rank_no", nullable = false)
     private Integer rankNo;
 
     @Enumerated(EnumType.STRING)

@@ -38,13 +38,16 @@ public class LocationService {
     @Transactional(readOnly = true)
     public List<LocationView> search(LocationSearch s) {
         String q = s.q() == null || s.q().isBlank() ? "%" : "%" + s.q().trim().toLowerCase() + "%";   // never null (PostgreSQL)
-        return repo.search(s.typeId(), s.parentId(), q).stream().map(LocationView::from).toList();
+        return repo.search(s.countryId(), s.typeId(), s.parentId(), q).stream().map(LocationView::from).toList();
     }
 
-    /** Whole tree, or the subtree under rootId. */
+    /**
+     * The tree: every country's (roots = level-1 locations such as divisions), one country's (countryId),
+     * or the subtree under rootId.
+     */
     @Transactional(readOnly = true)
-    public List<LocationNode> tree(Long rootId) {
-        List<Location> rows = rootId == null ? repo.findAllWithType() : repo.findSubtree(load(rootId).getPath());
+    public List<LocationNode> tree(Long rootId, Long countryId) {
+        List<Location> rows = rootId == null ? repo.findAllWithType(countryId) : repo.findSubtree(load(rootId).getPath());
         Map<Long, LocationNode> byId = new LinkedHashMap<>();
         List<LocationNode> roots = new ArrayList<>();
         for (Location l : rows) {                          // ordered by path, so parents come first
@@ -72,6 +75,7 @@ public class LocationService {
     public LocationView create(LocationForm f) {
         LocationType type = activeType(f.typeId());
         Location parent = f.parentId() == null ? null : load(f.parentId());
+        checkSameCountry(type, parent);
         checkLevel(type, parent);
         if (codeExists(f.code(), null)) {
             throw new BusinessException("Location code already exists: " + f.code());
@@ -91,6 +95,10 @@ public class LocationService {
         if (parent != null && HierarchyPath.isSelfOrDescendant(parent.getPath(), loc.getPath())) {
             throw new BusinessException("A location cannot be moved under itself or one of its children");
         }
+        if (!Objects.equals(type.getCountry().getId(), loc.getCountry().getId()) && repo.existsByParentId(id)) {
+            throw new BusinessException("A location with child locations cannot change country");
+        }
+        checkSameCountry(type, parent);
         checkLevel(type, parent);
         Integer minChildLevel = repo.minChildLevel(id);
         if (minChildLevel != null && minChildLevel <= type.getLevelNo()) {
@@ -145,7 +153,18 @@ public class LocationService {
         if (type.getStatus() != RecordStatus.ACTIVE) {
             throw new BusinessException("Location type is inactive: " + type.getCode());
         }
+        if (type.getCountry().getStatus() != RecordStatus.ACTIVE) {
+            throw new BusinessException("Country is inactive: " + type.getCountry().getIso2());
+        }
         return type;
+    }
+
+    /** A child and its parent must be in the same country (their types' country). */
+    private static void checkSameCountry(LocationType type, Location parent) {
+        if (parent != null && !Objects.equals(parent.getCountry().getId(), type.getCountry().getId())) {
+            throw new BusinessException("Parent location " + parent.getName() + " is in " + parent.getCountry().getName()
+                    + ", but a " + type.getName() + " belongs to " + type.getCountry().getName());
+        }
     }
 
     private static void checkLevel(LocationType type, Location parent) {

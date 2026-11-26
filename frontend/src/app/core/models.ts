@@ -18,10 +18,37 @@ export interface PageView<T> {
   totalPages: number;
 }
 
+/* ---------- country (a location type belongs to one country) ---------- */
+
+export interface CountryView {
+  id: number;
+  iso2: string;            // BD
+  iso3: string | null;     // BGD
+  name: string;
+  currencyCode: string | null;
+  phoneCode: string | null;
+  status: RecordStatus;
+  version: number;
+}
+
+export interface CountryForm {
+  iso2: string;
+  iso3: string | null;
+  name: string;
+  currencyCode: string | null;
+  phoneCode: string | null;
+  status: RecordStatus;
+  version?: number | null;
+}
+
 /* ---------- typed setup lists (location types, org unit types, designations) ---------- */
 
 export interface TypeView {
   id: number;
+  /** Location types only: each country defines its own levels. */
+  countryId?: number;
+  countryCode?: string;
+  countryName?: string;
   code: string;
   name: string;
   levelNo: number;
@@ -30,6 +57,7 @@ export interface TypeView {
 }
 
 export interface TypeForm {
+  countryId?: number | null;   // required for location types
   code: string;
   name: string;
   levelNo: number;
@@ -80,6 +108,9 @@ export interface LocationView {
   id: number;
   code: string;
   name: string;
+  countryId: number;       // from the location's type
+  countryCode: string;
+  countryName: string;
   typeId: number;
   typeCode: string;
   typeName: string;
@@ -92,9 +123,12 @@ export interface LocationView {
 }
 
 export interface LocationNode {
-  id: number;
+  id: number;              // negative = a country heading added by the UI (groupByCountry), not a location
   code: string;
   name: string;
+  countryId: number;
+  countryCode: string;
+  countryName: string;
   typeCode: string;
   typeName: string;
   levelNo: number;
@@ -216,4 +250,13 @@ export interface EmployeeSearch {
   status?: RecordStatus | null;
   page: number;
   size: number;
+}
+
+/** UI-only heading node for a country, used when the location tree spans several countries. */
+export function countryHeading(first: LocationNode, children: LocationNode[]): LocationNode {
+  return {
+    id: -first.countryId, code: first.countryCode, name: first.countryName,
+    countryId: first.countryId, countryCode: first.countryCode, countryName: first.countryName,
+    typeCode: 'COUNTRY', typeName: 'Country', levelNo: 0, status: 'ACTIVE', children,
+  };
 }

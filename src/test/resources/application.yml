@@ -12,3 +12,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+pms:
+  tenancy:
+    header: X-Tenant-Id
+    default-tenant-id: 1   # same as the POC app: no header = tenant 1

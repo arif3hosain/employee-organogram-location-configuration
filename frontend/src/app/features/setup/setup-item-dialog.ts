@@ -18,6 +18,8 @@ export interface SetupItem {
   name: string;
   value: number;
   display: string;     // what the table shows for `value`
+  group?: number | null;        // location types: the country id
+  groupDisplay?: string | null; // location types: the country name
   status: RecordStatus;
   version: number;
 }
@@ -26,6 +28,7 @@ export interface SetupItemValue {
   code: string;
   name: string;
   value: number;
+  group: number | null;
   status: RecordStatus;
   version: number | null;
 }
@@ -42,6 +45,9 @@ export interface SetupItemDialogData {
   valueHint: string;
   /** When set, `value` is chosen from this list instead of typed. */
   options: SetupOption[] | null;
+  /** When set, the item also belongs to a group chosen first (a location type's country). */
+  groupLabel?: string;
+  groupOptions?: SetupOption[] | null;
   item: SetupItem | null;
   save: (value: SetupItemValue) => Observable<unknown>;
 }
@@ -53,6 +59,17 @@ export interface SetupItemDialogData {
     <h2 mat-dialog-title>{{ data.item ? 'Edit' : 'New' }} {{ data.title }}</h2>
     <mat-dialog-content>
       <form [formGroup]="form" class="form-grid" id="setupForm" (ngSubmit)="save()">
+        @if (data.groupOptions) {
+          <mat-form-field class="full">
+            <mat-label>{{ data.groupLabel }}</mat-label>
+            <mat-select formControlName="group">
+              @for (o of data.groupOptions; track o.id) {
+                <mat-option [value]="o.id" [disabled]="o.disabled && o.id !== data.item?.group">{{ o.label }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>Each {{ data.groupLabel?.toLowerCase() }} has its own levels.</mat-hint>
+          </mat-form-field>
+        }
         <mat-form-field>
           <mat-label>Code</mat-label>
           <input matInput formControlName="code" maxlength="30" />
@@ -100,8 +117,16 @@ export class SetupItemDialog {
     name: [this.data.item?.name ?? '', Validators.required],
     value: this.fb.control<number | null>(this.data.item?.value ?? (this.data.options ? null : 1),
                                           [Validators.required, Validators.min(1)]),
+    group: this.fb.control<number | null>(this.data.item?.group ?? this.firstGroup(),
+                                          this.data.groupOptions ? Validators.required : []),
     status: this.fb.control<RecordStatus>(this.data.item?.status ?? 'ACTIVE'),
   });
+
+  /** With a single active group (one country) it is pre-selected. */
+  private firstGroup(): number | null {
+    const active = (this.data.groupOptions ?? []).filter(o => !o.disabled);
+    return active.length === 1 ? active[0].id : null;
+  }
 
   protected save(): void {
     const v = this.form.getRawValue();

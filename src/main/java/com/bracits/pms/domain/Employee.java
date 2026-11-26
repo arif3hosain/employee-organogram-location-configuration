@@ -22,15 +22,15 @@ import java.time.LocalDate;
 @Table(name = "employee")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Employee extends BaseEntity {
+public class Employee extends TenantScopedEntity {
 
-    @Column(name = "employee_code", nullable = false, unique = true, length = 30)
+    @Column(name = "employee_code", nullable = false, length = 30)
     private String employeeCode;
 
     @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(nullable = false, length = 150)
     private String email;
 
     @Column(length = 30)

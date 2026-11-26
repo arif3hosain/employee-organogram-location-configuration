@@ -1,5 +1,6 @@
 package com.bracits.pms.service;
 
+import com.bracits.pms.domain.Country;
 import com.bracits.pms.domain.LocationType;
 import com.bracits.pms.dto.record.LocationTypeForm;
 import com.bracits.pms.dto.record.LocationTypeView;
@@ -20,30 +21,40 @@ public class LocationTypeService {
 
     private final LocationTypeRepository typeRepo;
     private final LocationRepository locationRepo;
+    private final CountryService countryService;
 
+    /** All location types, or one country's (countryId given). */
     @Transactional(readOnly = true)
-    public List<LocationTypeView> list() {
-        return typeRepo.findAllByOrderByLevelNoAscNameAsc().stream().map(LocationTypeView::from).toList();
+    public List<LocationTypeView> list(Long countryId) {
+        return typeRepo.list(countryId).stream().map(LocationTypeView::from).toList();
     }
 
-    private boolean codeExists(String code, Long excludeId) {
+    private boolean codeExists(Long countryId, String code, Long excludeId) {
         return excludeId == null
-                ? typeRepo.existsByCodeIgnoreCase(code.trim())
-                : typeRepo.existsByCodeIgnoreCaseAndIdNot(code.trim(), excludeId);
+                ? typeRepo.existsByCountryIdAndCodeIgnoreCase(countryId, code.trim())
+                : typeRepo.existsByCountryIdAndCodeIgnoreCaseAndIdNot(countryId, code.trim(), excludeId);
     }
 
     @Transactional
     public LocationTypeView create(LocationTypeForm f) {
-        checkUniqueCode(f.code(), null);
-        return LocationTypeView.from(typeRepo.save(new LocationType(f.code(), f.name(), f.levelNo())));
+        Country country = countryService.findActiveEntity(f.countryId());
+        checkUniqueCode(country, f.code(), null);
+        return LocationTypeView.from(typeRepo.save(new LocationType(country, f.code(), f.name(), f.levelNo())));
     }
 
     @Transactional
     public LocationTypeView update(Long id, LocationTypeForm f) {
         LocationType type = findEntity(id);
         type.assertVersion(f.version());
-        checkUniqueCode(f.code(), id);
-        if (!Objects.equals(type.getLevelNo(), f.levelNo()) && locationRepo.existsByTypeId(id)) {
+        boolean inUse = locationRepo.existsByTypeId(id);
+        if (!Objects.equals(type.getCountry().getId(), f.countryId())) {
+            if (inUse) {
+                throw new BusinessException("Country cannot change while locations use this type");
+            }
+            type.moveToCountry(countryService.findActiveEntity(f.countryId()));
+        }
+        checkUniqueCode(type.getCountry(), f.code(), id);
+        if (!Objects.equals(type.getLevelNo(), f.levelNo()) && inUse) {
             throw new BusinessException("Level cannot change while locations use this type");
         }
         type.change(f.code(), f.name(), f.levelNo(), f.status());
@@ -59,15 +70,15 @@ public class LocationTypeService {
         typeRepo.delete(type);
     }
 
-    private void checkUniqueCode(String code, Long excludeId) {
-        if (codeExists(code, excludeId)) {
-            throw new BusinessException("Location type code already exists: " + code);
+    private void checkUniqueCode(Country country, String code, Long excludeId) {
+        if (codeExists(country.getId(), code, excludeId)) {
+            throw new BusinessException("Location type code already exists in " + country.getName() + ": " + code);
         }
     }
 
-    /** For LocationService (same module). Public so the Spring proxy delegates it correctly. */
+    /** For LocationService (same module). Public so the Spring proxy delegates it correctly. Country is loaded. */
     @Transactional(readOnly = true)
     public LocationType findEntity(Long id) {
-        return typeRepo.findById(id).orElseThrow(() -> new NotFoundException("Location type", id));
+        return typeRepo.findWithCountry(id).orElseThrow(() -> new NotFoundException("Location type", id));
     }
 }

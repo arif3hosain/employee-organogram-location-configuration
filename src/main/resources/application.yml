@@ -19,6 +19,13 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+pms:
+  tenancy:
+    header: X-Tenant-Id
+    # POC only: requests without the header act as tenant 1 so the current UI keeps working.
+    # Remove in the product: the tenant must come from the signed-in user's token.
+    default-tenant-id: 1
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

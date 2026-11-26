@@ -4,13 +4,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../core/api.service';
-import { LocationNode, LocationView } from '../../core/models';
+import { LocationNode, LocationView, countryHeading } from '../../core/models';
 import { confirm } from '../../shared/confirm-dialog';
 import { TreeView, expandToDepth } from '../../shared/tree-view';
-import { ancestorIds } from '../../shared/tree-utils';
+import { ancestorIds, groupByCountry, isCountryHeading } from '../../shared/tree-utils';
 import { LocationFormDialog } from './location-form-dialog';
 
-/** Type-wise location tree (replaces Division / District / Upazila). */
+/**
+ * Type-wise location tree (replaces Division / District / Upazila). Country is its own table
+ * (Setup › Countries); each country's location types define its levels. With several countries
+ * the tree is grouped under a heading per country.
+ */
 @Component({
   selector: 'app-locations-page',
   imports: [TreeView, RouterLink, MatButtonModule, MatIconModule],
@@ -46,6 +50,7 @@ import { LocationFormDialog } from './location-form-dialog';
           </div>
           <dl>
             <dt>Code</dt><dd>{{ l.code }}</dd>
+            <dt>Country</dt><dd>{{ l.countryName }} ({{ l.countryCode }})</dd>
             <dt>Parent</dt><dd>{{ l.parentName ?? '— (top level)' }}</dd>
             <dt>Path</dt><dd><code>{{ l.path }}</code></dd>
             <dt>Version</dt><dd>{{ l.version }}</dd>
@@ -90,8 +95,11 @@ export class LocationsPage {
 
   private reload(firstLoad = false): void {
     this.api.locationTree().subscribe(t => {
+      t = groupByCountry(t, countryHeading);
+      const newHeadings = t.filter(n => isCountryHeading(n.id) && !this.tree().some(o => o.id === n.id)).map(n => n.id);
       this.tree.set(t);
       if (firstLoad) this.expanded.set(expandToDepth(t, 2));
+      else if (newHeadings.length) this.expanded.update(s => new Set([...s, ...newHeadings]));   // a 2nd country was just added
       const id = this.selectedId();
       if (id !== null) {
         // keep the selection visible after a move
@@ -103,6 +111,11 @@ export class LocationsPage {
   }
 
   protected select(id: number): void {
+    if (isCountryHeading(id)) {      // a country heading only opens / closes
+      this.expanded.update(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+      this.selectedId.set(this.selected()?.id ?? null);
+      return;
+    }
     this.selectedId.set(id);
     this.api.location(id).subscribe({ next: l => this.selected.set(l), error: () => this.selected.set(null) });
   }

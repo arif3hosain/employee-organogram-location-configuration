@@ -6,8 +6,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/** Body for creating or updating a type (the id comes from the URL on update). levelNo 1 = top. */
+/** Body for creating or updating a type (the id comes from the URL on update). levelNo 1 = top. Each type belongs to a country. */
 public record LocationTypeForm(
+        @NotNull(message = "Country is required")
+        Long countryId,
+
         @NotBlank(message = "Code is required")
         @Size(max = 30, message = "Code must be at most 30 characters")
         String code,

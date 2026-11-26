@@ -6,14 +6,16 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { ApiService } from '../core/api.service';
-import { LocationNode } from '../core/models';
+import { LocationNode, countryHeading } from '../core/models';
 import { TreeView } from './tree-view';
-import { ancestorIds, findNode } from './tree-utils';
+import { ancestorIds, findNode, groupByCountry, isCountryHeading } from './tree-utils';
 
 /**
  * Drop-down tree for picking a location. The field opens a panel with the whole
- * location tree (Bangladesh › Division › District › Upazila / Office). Nodes expand and
- * collapse, a search box narrows the tree, and clicking any node at any level picks it.
+ * location tree (Division › District › Upazila / Office, as defined by the country's location
+ * types). With more than one country the tree starts with a heading per country (country is
+ * its own table, not a location, so a heading only expands). Nodes expand and collapse, a
+ * search box narrows the tree, and clicking any location at any level picks it.
  *
  * Form control value = the picked location id (or null).
  *   <app-location-picker formControlName="locationId" label="Workplace" [required]="true" />
@@ -67,7 +69,7 @@ import { ancestorIds, findNode } from './tree-utils';
           </ng-template>
           @if (visibleTree().length) {
             <app-tree-view [nodes]="visibleTree()" [nodeTemplate]="nodeLabel" [selectedId]="value()"
-                           [(expanded)]="expanded" (picked)="choose($event.id)" />
+                           [(expanded)]="expanded" (picked)="pick($event)" />
           } @else {
             <p class="muted empty">{{ tree().length ? 'No location matches "' + query() + '"' : 'Loading…' }}</p>
           }
@@ -131,12 +133,15 @@ export class LocationPicker implements ControlValueAccessor {
     return id === null ? null : findNode(this.tree(), id);
   });
 
-  /** "Bangladesh › Dhaka › Dhaka › Mirpur-10 Branch" */
+  /** "Bangladesh › Dhaka › Dhaka › Mirpur-10 Branch" (the country comes from the location's type) */
   protected readonly pathLabel = computed(() => {
     const id = this.value();
-    if (id === null) return '';
+    const node = this.selectedNode();
+    if (id === null || !node) return '';
     const trail = ancestorIds(this.tree(), id) ?? [];
-    return [...trail, id].map(x => findNode(this.tree(), x)?.name ?? '?').join(' › ');
+    const names = [...trail, id].map(x => findNode(this.tree(), x)?.name ?? '?');
+    if (!isCountryHeading(trail[0])) names.unshift(node.countryName);
+    return names.join(' › ');
   });
 
   /** The tree, or only the matching nodes and their ancestors while searching. Sorted by name per level. */
@@ -146,7 +151,7 @@ export class LocationPicker implements ControlValueAccessor {
   });
 
   constructor() {
-    this.api.locationTree().subscribe(t => this.tree.set(t));
+    this.api.locationTree().subscribe(t => this.tree.set(groupByCountry(t, countryHeading)));
   }
 
   protected toggle(): void {
@@ -181,6 +186,14 @@ export class LocationPicker implements ControlValueAccessor {
       walk(this.visibleTree());
       this.expanded.set(ids);
     }
+  }
+
+  /** A country heading is not a location: clicking it only opens or closes it. */
+  protected pick(node: LocationNode): void {
+    if (!isCountryHeading(node.id)) { this.choose(node.id); return; }
+    const next = new Set(this.expanded());
+    if (next.has(node.id)) next.delete(node.id); else next.add(node.id);
+    this.expanded.set(next);
   }
 
   protected choose(id: number | null): void {

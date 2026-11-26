@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -29,9 +30,10 @@ public class LocationTypeController {
 
     private final LocationTypeService service;
 
+    /** All types, or ?countryId=1 for one country's levels. */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<LocationTypeView>>> list() {
-        return ApiResponses.ok(service.list());
+    public ResponseEntity<ApiResponse<List<LocationTypeView>>> list(@RequestParam(required = false) Long countryId) {
+        return ApiResponses.ok(service.list(countryId));
     }
 
     @PostMapping

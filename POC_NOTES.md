@@ -18,11 +18,7 @@ Migration principle 3 says corehr is a *read-only replica* synced from the ERP (
 
 **Current:** full CRUD in PMS, no sync.
 
-**Q2. Database.** You asked for PostgreSQL (`localhost:5433/pmspoc`). CLAUDE.md lists "Oracle vs PostgreSQL for the product edition" as open, with Phase 1 staying on Oracle.
-- Does this settle it as **PostgreSQL for the product**?
-- Do we still need an Oracle profile for the BRAC deployment?
-
-**Current:** PostgreSQL only. The DDL avoids Postgres-only features (VARCHAR status instead of BOOLEAN, identity columns), so an Oracle port stays cheap.
+**Q2. Database.** ~~Oracle or PostgreSQL?~~ **Answered 24 Nov: PostgreSQL** for the product. Still open: does the BRAC deployment need an Oracle profile at all, or does it move to PostgreSQL too?
 
 **Q3. Frontend.** ~~Do you want an Angular UI?~~ **Answered 18 Nov: yes.** It's built in `frontend/`. Still open: the guide lists **Angular Material or PrimeNG**; the POC uses Angular Material. Is that acceptable as the product's component library?
 
@@ -56,7 +52,7 @@ A child unit inherits its parent's nature unless one is set, and the organizatio
 
 ### Location
 
-**Q9. Location types.** ~~Which types does the business use?~~ **Answered 18 Nov:** COUNTRY > DIVISION > DISTRICT > UPAZILA, loaded for all of Bangladesh in V4, with BRANCH/OFFICE at level 5. Still open: Dhaka and Chattogram **city thanas** (Gulshan, Mirpur, Double Mooring…) aren't upazilas and aren't loaded; offices in the cities sit directly under the district. Do you need a THANA level for the city corporations? Also, should locations keep the **Bangla name** (the source data has it)?
+**Q9. Location types.** ~~Which types does the business use?~~ **Answered 18 Nov, revised 24 Nov:** DIVISION > DISTRICT > UPAZILA, loaded for all of Bangladesh in V4, with BRANCH/OFFICE at level 4. Since V5 the country is its own table, not a level (D13). Still open: Dhaka and Chattogram **city thanas** (Gulshan, Mirpur, Double Mooring…) aren't upazilas and aren't loaded; offices in the cities sit directly under the district. Do you need a THANA level for the city corporations? Also, should locations keep the **Bangla name** (the source data has it)?
 - Which types does the business actually use?
 - Who will map the legacy Division / District / Thana data and the `PhysicalOfficeInfo` offices onto the new tree?
 
@@ -98,10 +94,34 @@ A child unit inherits its parent's nature unless one is set, and the organizatio
 | D10 | Mail is a logging stub (`NotificationService`) called only from after-commit event listeners | Guide rule 4. The real notification module comes later. |
 | D11 | No MapStruct, Lombok or Spring Modulith yet | Keeps the POC small. Add them when the module count grows. |
 | D12 | Tests use H2 in PostgreSQL mode with the same Flyway scripts | Fast and needs no database. Move to Testcontainers (guide §2.2) once Docker is available in CI. |
+| D13 | **Country is its own table** (`country`: ISO codes, currency, phone code). Each `location_type` belongs to a country, so each country has its own levels; `location` has no country column (its type gives it). A location's parent must be in the same country | Option A, chosen 24 Nov. Same as Odoo (`res.country`) and SAP (T005). Bangladesh (Division › District › Upazila › Union › Ward/Village) and India or the USA differ, so the levels must be per country; a country column on every location would be redundant and could disagree with the type. |
+| D14 | **Multi-tenancy: shared schema, `tenant_id` on parent tables only** (V6). PARENT tables (listed, searched or referenced on their own: location_type, location, org_unit_type, org_unit, grade, designation, employee) extend `TenantScopedEntity` (Hibernate `@TenantId`: tenant filled on insert, `tenant_id = ?` added to every HQL/JPQL query). CHILD tables (`@TenantChildOf`, now only `org_unit_post`) have no tenant column and are reached only through the parent; their repository extends plain `Repository` (no unscoped `findById`/`findAll`). SHARED tables (`@SharedAcrossTenants`: `country`, `tenant`) have none. In the DB: codes unique per tenant, parent-to-parent FKs composite `(tenant_id, x_id)`, no default on `tenant_id`. Global ids, existing data = tenant 1 | Chosen 24 Nov ("not all tables need multi-tenancy, but parent tables can"). One DB to run and migrate; legacy ids stay valid for tenant 1; a child can be promoted to a parent later by adding the column. `TenancyRulesTest` fails the build if a new entity doesn't declare which kind it is. |
 
 ---
 
 ## Progress log
+
+### 24 Nov 2026: multi-tenancy on parent tables (V6) and PostgreSQL confirmed
+
+- [x] `V6__multi_tenancy.sql`: `tenant` table (BRAC = 1). `tenant_id` added to the 7 parent tables, back-filled to 1, then the default dropped. Unique keys are now per tenant (`(tenant_id, code)`, `(tenant_id, email)`, `(tenant_id, rank_no)` …). Every parent-to-parent FK is composite `(tenant_id, x_id) -> (tenant_id, id)`, so the DB itself refuses a cross-tenant link. `org_unit_post` (child) and `country` (shared) are unchanged.
+- [x] `tenant` package: `TenantFilter` reads `X-Tenant-Id` on `/api/**` (400 bad value, 403 unknown or inactive tenant), `TenantContext` (ThreadLocal; `run(tenantId, work)` for jobs), `TenantIdentifierResolver` (Hibernate; no tenant = `-1`, which matches nothing and fails inserts). `pms.tenancy.default-tenant-id: 1` is set for the POC so the UI works without the header; **remove it in the product** and take the tenant from the login token.
+- [x] `TenantScopedEntity` (`@TenantId`), `@TenantChildOf`, `@SharedAcrossTenants`. `OrgUnitPostRepository` now extends `Repository`; delete-by-id is `findInTenant(id, tenant)` joining the org unit; the native head-count query names `tenant_id` explicitly (Hibernate doesn't filter native SQL).
+- [x] Tests: `TenancyRulesTest` (every entity declares its kind; child repositories have no unscoped finders; the rule was checked by breaking it) and `TenancyIntegrationTest` (tenant 2 sees nothing of tenant 1, by list or by id; countries are shared; same code allowed in two tenants; can't reference or delete another tenant's rows; DB rejects a cross-tenant FK; bad, unknown or inactive tenant rejected). **All 36 tests pass** (`mvn test`, Java 25).
+- [x] Checked on real PostgreSQL 5433 in a throwaway DB (`pmspoc_v6check`, dropped afterwards): V1–V6 apply, Hibernate `validate` passes, tenant 1 = 8 employees, tenant 2 = 0, tenant 99 = 403.
+- **Run:** restart the backend; Flyway applies V6 to your `pmspoc` DB automatically. All existing data becomes tenant 1.
+- **Open:** (a) how the tenant reaches the API in the product (JWT/CAS claim, sub-domain?); (b) should the Bangladesh geography be a shared template copied per tenant, instead of each tenant loading it; (c) PostgreSQL row-level security as a second guard (needs `SET app.tenant_id` per transaction); (d) a tenant admin screen/API; (e) frontend tenant switcher (only if one user can belong to several tenants).
+
+### 24 Nov 2026: country as its own table (option A)
+
+- [x] `V5__country.sql`: new `country` table, Bangladesh seeded (id 1). `location_type.country_id` (NOT NULL, FK); type codes are unique per country (`uk_location_type_country_code`).
+- [x] V5 removes the old COUNTRY type and the "Bangladesh" location: divisions become roots, every path loses its `/1/` prefix and every level moves up by one (Division 1, District 2, Upazila 3, Branch 4). Location ids are unchanged, so employees and org units keep their location. Checked on PostgreSQL (PGlite): 8 roots, 0 path or level errors.
+- [x] Backend: `Country` entity, repository, service and `/api/countries` CRUD. `LocationType` gets a country; `LocationView` / `LocationNode` / `LocationTypeView` carry `countryId`, `countryCode`, `countryName`. New filters: `GET /api/location-types?countryId=`, `GET /api/locations?countryId=`, `GET /api/locations/tree?countryId=`.
+- [x] New rules (409): a parent must be in the same country; a type's country or level can't change while it is in use; a location with children can't move to another country; a country with location types can't be deleted; an inactive country's types can't be used.
+- [x] Tests: `CoreHrFlowIntegrationTest` updated for the new levels and roots, plus `countriesDefineTheirOwnLevels` (India with its own STATE/DISTRICT, same code allowed across countries, cross-country parent rejected).
+- [x] Frontend: Setup › **Countries** tab; the location-type dialog asks for the country (pre-selected when there is only one); the location form groups types by country and offers only parents from the type's country. The location tree and the drop-down picker show a heading per country once there is more than one country; the picker's path hint still starts with the country name.
+- **Run:** restart the backend; Flyway applies V5 automatically. Run `mvn test`.
+- **Open:** should a country hold more (address format, default language, time zone)? Should the employee/org unit screens filter by country?
+
 
 ### 21 Nov 2026: Action classes removed (standard Spring layering)
 

@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
 import {
   DesignationForm, DesignationView, EmployeeForm, GradeForm, GradeView, EmployeeSearch, EmployeeView,
-  LocationForm, LocationNode, LocationView, OrgUnitForm, OrgUnitNature, OrgUnitNode,
+  CountryForm, CountryView, LocationForm, LocationNode, LocationView, OrgUnitForm, OrgUnitNature, OrgUnitNode,
   OrgUnitPostView, OrgUnitView, PageView, Result, TypeForm, TypeView,
 } from './models';
 import { NotifyService } from './notify.service';
@@ -17,17 +17,25 @@ export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly notify = inject(NotifyService);
 
-  /* ---------------- location types ---------------- */
-  locationTypes(): Observable<TypeView[]> { return this.get('/api/location-types'); }
+  /* ---------------- countries ---------------- */
+  countries(): Observable<CountryView[]> { return this.get('/api/countries'); }
+  createCountry(f: CountryForm): Observable<CountryView> { return this.send('POST', '/api/countries', f); }
+  updateCountry(id: number, f: CountryForm): Observable<CountryView> { return this.send('PUT', `/api/countries/${id}`, f); }
+  deleteCountry(id: number): Observable<number> { return this.send('DELETE', `/api/countries/${id}`); }
+
+  /* ---------------- location types (per country) ---------------- */
+  locationTypes(countryId?: number | null): Observable<TypeView[]> { return this.get('/api/location-types', { countryId }); }
   createLocationType(f: TypeForm): Observable<TypeView> { return this.send('POST', '/api/location-types', f); }
   updateLocationType(id: number, f: TypeForm): Observable<TypeView> { return this.send('PUT', `/api/location-types/${id}`, f); }
   deleteLocationType(id: number): Observable<number> { return this.send('DELETE', `/api/location-types/${id}`); }
 
   /* ---------------- locations ---------------- */
-  locations(filter: { typeId?: number | null; parentId?: number | null; q?: string | null } = {}): Observable<LocationView[]> {
+  locations(filter: { countryId?: number | null; typeId?: number | null; parentId?: number | null; q?: string | null } = {}): Observable<LocationView[]> {
     return this.get('/api/locations', filter);
   }
-  locationTree(rootId?: number | null): Observable<LocationNode[]> { return this.get('/api/locations/tree', { rootId }); }
+  locationTree(rootId?: number | null, countryId?: number | null): Observable<LocationNode[]> {
+    return this.get('/api/locations/tree', { rootId, countryId });
+  }
   location(id: number): Observable<LocationView> { return this.get(`/api/locations/${id}`); }
   createLocation(f: LocationForm): Observable<LocationView> { return this.send('POST', '/api/locations', f); }
   updateLocation(id: number, f: LocationForm): Observable<LocationView> { return this.send('PUT', `/api/locations/${id}`, f); }

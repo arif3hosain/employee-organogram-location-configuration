@@ -8,6 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.jayway.jsonpath.JsonPath;
+
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
@@ -20,8 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * End-to-end through Controller -> Service -> DB on the seed data (V2 migration).
- * Seed ids follow insert order: locations BD=1, B-HO=7, B-MIR10=8, B-AGR=9 (V4 removed the sample regions/areas 2-6
- * and added divisions/districts/upazilas from id 10);
+ * Seed ids follow insert order: locations B-HO=7, B-MIR10=8, B-AGR=9, divisions 10-17 (Barishal=10, Chattogram=11,
+ * Dhaka=12, ...), districts and upazilas after them. V5 moved the country into the country table (Bangladesh=1) and
+ * removed the old "Bangladesh" location (id 1), so the divisions are the roots.
+ * Location type ids after V5: BRANCH=4 (level 4), DIVISION=5 (1), DISTRICT=6 (2), UPAZILA=7 (3), all in Bangladesh;
  * org units ORG=1, F-TECH=2, F-CS=3, D-SE=4, D-QA=5, D-HR=6, D-FIN=7, U-ERP=8;
  * designations CEO=1 ... OFF=6; grades G1=1 ... G6=6 (V3, CEO -> G1 ... OFF -> G6); employees E0001=1, E0002=2, E0006=3, E0003=4, E0007=5, E0008=6, E0004=7, E0005=8.
  */
@@ -35,13 +39,12 @@ class CoreHrFlowIntegrationTest {
 
     @Test
     void locationTreeIsTypeWise() throws Exception {
-        // V4: Bangladesh > 8 divisions > 64 districts > 495 upazilas (BBS geocodes as codes)
+        // V5: country table (Bangladesh) > 8 divisions (roots) > 64 districts > 495 upazilas (BBS geocodes as codes)
         mvc.perform(get("/api/locations/tree"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].typeCode").value("COUNTRY"))
-                .andExpect(jsonPath("$.data[0].children", hasSize(8)))
-                .andExpect(jsonPath("$.data[0].children[0].typeCode").value("DIVISION"));
+                .andExpect(jsonPath("$.data", hasSize(8)))
+                .andExpect(jsonPath("$.data[0].typeCode").value("DIVISION"))
+                .andExpect(jsonPath("$.data[0].countryCode").value("BD"));
 
         mvc.perform(get("/api/locations").param("typeId", "6"))          // every DISTRICT
                 .andExpect(jsonPath("$.data", hasSize(64)));
@@ -50,29 +53,85 @@ class CoreHrFlowIntegrationTest {
         mvc.perform(get("/api/locations").param("typeId", "4"))          // every BRANCH / OFFICE
                 .andExpect(jsonPath("$.data", hasSize(3)));
 
-        mvc.perform(get("/api/locations/7"))                              // Head Office now sits under Dhaka district
+        mvc.perform(get("/api/locations/7"))                              // Head Office sits under Dhaka district
                 .andExpect(jsonPath("$.data.parentName").value("Dhaka"))
-                .andExpect(jsonPath("$.data.levelNo").value(5));
+                .andExpect(jsonPath("$.data.levelNo").value(4))
+                .andExpect(jsonPath("$.data.path").value(startsWith("/12/")))
+                .andExpect(jsonPath("$.data.countryName").value("Bangladesh"));
     }
 
     @Test
     void locationLevelRuleIsEnforced() throws Exception {
-        // type ids after V4: COUNTRY=1, BRANCH=4 (level 5), DIVISION=5, DISTRICT=6, UPAZILA=7
-        // a BRANCH directly under the COUNTRY is allowed: levels may be skipped
+        // a BRANCH (level 4) directly under a DIVISION (level 1) is allowed: levels may be skipped
         mvc.perform(post("/api/locations").contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"B-REMOTE","name":"Remote Office","typeId":4,"parentId":1}
+                                {"code":"B-REMOTE","name":"Remote Office","typeId":4,"parentId":12}
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.path", startsWith("/1/")));
+                .andExpect(jsonPath("$.data.path", startsWith("/12/")));
 
-        // a DIVISION (level 2) under a BRANCH (level 5) is not
+        // a DIVISION (level 1) is a root: it cannot sit under a BRANCH
         mvc.perform(post("/api/locations").contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"code":"DIV-BAD","name":"Bad Division","typeId":5,"parentId":7}
                                 """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void countriesDefineTheirOwnLevels() throws Exception {
+        mvc.perform(get("/api/countries"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].iso2").value("BD"))
+                .andExpect(jsonPath("$.data[0].currencyCode").value("BDT"));
+
+        // Bean Validation on the body: ISO2 must be 2 letters
+        mvc.perform(post("/api/countries").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"iso2":"IND","iso3":"IND","name":"India"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        // India (id 2) gets its own STATE and DISTRICT types; DISTRICT may repeat across countries
+        mvc.perform(post("/api/countries").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"iso2":"IN","iso3":"IND","name":"India","currencyCode":"INR","phoneCode":"+91"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(2));
+        mvc.perform(post("/api/location-types").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"countryId":2,"code":"STATE","name":"State","levelNo":1}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.countryCode").value("IN"));
+        String created = mvc.perform(post("/api/location-types").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"countryId":2,"code":"DISTRICT","name":"District","levelNo":2}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Number indianDistrictId = JsonPath.read(created, "$.data.id");
+        // but not twice in the same country
+        mvc.perform(post("/api/location-types").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"countryId":1,"code":"DISTRICT","name":"District again","levelNo":2}
+                                """))
+                .andExpect(status().isConflict());
+
+        mvc.perform(get("/api/location-types").param("countryId", "2"))
+                .andExpect(jsonPath("$.data", hasSize(2)));
+
+        // an Indian DISTRICT (the type just created) cannot sit under Dhaka division (Bangladesh)
+        mvc.perform(post("/api/locations").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"IN-X\",\"name\":\"Wrong place\",\"typeId\":" + indianDistrictId + ",\"parentId\":12}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message", containsString("Bangladesh")));
+
+        // a country that has location types cannot be deleted
+        mvc.perform(delete("/api/countries/1")).andExpect(status().isConflict());
     }
 
     @Test
